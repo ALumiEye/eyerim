@@ -25,9 +25,10 @@ Chơi một mình: tay trái dùng `A S D W F`, tay phải dùng `J K L`.
 ## Cơ chế
 
 - **Neural Link (Đồng bộ):** khi hai phi công ra đòn gần như cùng lúc thì sát thương nhân đôi và Link tăng. Ra đòn lệch nhịp, bị trúng đòn hay bị quái gầm thì Link giảm. Dưới 25% Titan trở nên chậm chạp.
-- **Pháo plasma nạp lực:** giữ `L` càng lâu (tối đa 1,4 giây) phát bắn càng to, càng mạnh và càng tốn năng lượng (15 → 50). Nạp từ 60% trở lên là đòn nặng, dùng phản đòn được. Bị trúng đòn khi đang nạp sẽ mất phát nạp.
+- **Pháo plasma nạp lực:** giữ `L` càng lâu (tối đa 1,4 giây) phát bắn càng to, càng mạnh và càng tốn năng lượng (15 → 50). Nạp từ 60% trở lên là đòn nặng, dùng phản đòn được. Đang nạp thì không đỡ được, và trúng bất kỳ đòn nào (kể cả khi đỡ) là mất phát nạp lẫn năng lượng đã nạp.
 - **Năng lượng:** hồi chậm, và ngừng hồi 1,2 giây sau mỗi lần tiêu, nên hãy dùng pháo và lướt né đúng lúc.
-- **Cú đấm phản lực:** động cơ ở khuỷu tay mồi lửa trong lúc gồng rồi phóng cả Titan lao tới. Sát thương lớn, tầm xa, là đòn nặng nên dùng phản đòn được.
+- **Cú đấm phản lực:** động cơ ở khuỷu tay mồi lửa trong lúc gồng, vệt dưới đất báo tầm (xanh = trong tầm). Quái trong tầm thì chắc chắn trúng: Titan trượt tới sát quái rồi giáng đòn. Là đòn nặng nên dùng phản đòn được.
+- **Ăn mừng:** hạ gục quái là Titan bật nhảy bằng thruster, xoay nửa vòng rồi đáp đất dang tay — EYERIIIM!
 - **Vỡ thế thủ:** đỡ đòn khi đã hết năng lượng thì Titan lãnh trọn đòn.
 - **TIDEBREAKER:** khi Link đạt 100%, đồng bộ thêm một lần nữa để bắn chùm tia từ lò phản ứng ở ngực.
 - **Phản đòn:** dấu `!` hiện lên khi quái vật đang gồng đòn. Dùng đòn nặng (kiếm xích, pháo, đòn đồng bộ) đánh trúng lúc đó sẽ làm nó choáng lâu.

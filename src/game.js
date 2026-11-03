@@ -19,7 +19,8 @@
   const CHARGE_TIME = 1.4; // giây để nạp đầy pháo plasma
   const CHARGE_MIN = 15; // năng lượng tốn ngay khi bắt đầu nạp
   const CHARGE_MAX = 50; // tổng năng lượng khi nạp đầy
-  const REGEN_DELAY = 1.2; // năng lượng ngừng hồi sau khi tiêu
+  const REGEN_DELAY = 1.2;
+  const JET_REACH = 560; // quái trong khoảng này thì cú đấm phản lực chắc chắn trúng // năng lượng ngừng hồi sau khi tiêu
   const SYNC_WINDOW = 0.16;
   const PHASE2_SPEED = 1.35;
   const BLOCK_COST = 10; // năng lượng tốn mỗi lần đỡ đòn
@@ -161,6 +162,14 @@
     collapse() { this.noise(1.5, 0.45, 260); this.tone(50, 1.2, 'sine', 0.2, 30); },
     beam() { this.tone(200, 1.5, 'sawtooth', 0.18, 900); this.noise(1.5, 0.25, 1600); },
     thunder() { this.noise(2.2, 0.35, 180, 0.3); },
+    cheer() {
+      // tiếng hò reo của đám đông: nhiễu lọc dải giữa, to dần rồi tắt
+      if (!this.ac || this.muted) return;
+      for (let i = 0; i < 3; i++) this.noise(2.6, 0.18, 600 + i * 500, 0.7 + i * 0.05);
+      this.tone(392, 0.25, 'square', 0.07, null, 0.75);
+      this.tone(523, 0.25, 'square', 0.07, null, 0.95);
+      this.tone(659, 0.6, 'square', 0.07, null, 1.15);
+    },
     buy() { this.tone(520, 0.08, 'square', 0.08); this.tone(780, 0.12, 'square', 0.08, null, 0.07); },
     deny() { this.tone(160, 0.15, 'square', 0.08); },
   };
@@ -443,8 +452,8 @@
     if (fx.particles.length > 1000) fx.particles.splice(0, fx.particles.length - 1000);
   }
 
-  function floatText(x, y, str, color = '#fff', size = 24) {
-    fx.texts.push({ x, y, str, color, size, life: 1.1 });
+  function floatText(x, y, str, color = '#fff', size = 24, life = 1.1) {
+    fx.texts.push({ x, y, str, color, size, life });
   }
 
   function shake(a) {
@@ -544,8 +553,9 @@
       p1Flash: 0, p2Flash: 0,
       arms: { L: null, R: null },
       syncPending: null, syncCount: 0,
-      charge: null, regenDelay: 0,
+      charge: null, regenDelay: 0, slide: null,
       beaming: false,
+      celebrate: null, airY: 0,
     };
   }
 
@@ -751,10 +761,33 @@
       return;
     }
     if (a.name === 'jet') {
-      T.vx += T.facing * 1500;
       sfx.jetBoom();
       shake(10);
       fx.rings.push({ x: T.x - T.facing * 40, y: GROUND - 250, r: 0, max: 160, life: 0.4, color: '#ffb347' });
+      const jdx = (K.x - T.x) * T.facing;
+      if (jdx > -40 && jdx < JET_REACH + K.half) {
+        // chắc chắn trúng: Titan trượt tới sát quái rồi mới giáng đòn
+        const sync = a.sync;
+        T.slide = {
+          from: T.x, t: 0, dur: 0.12 + 0.12 * clamp(jdx / (JET_REACH + K.half), 0, 1),
+          onArrive: () => {
+            const KK = game.kaiju;
+            if (!KK || KK.dying) return;
+            let dmg = m.dmg;
+            let kb = m.kb;
+            if (sync) {
+              dmg *= 1.6;
+              kb *= 1.4;
+            }
+            damageKaiju(dmg, kb, true, KK.x - T.facing * KK.half * 0.6, GROUND - 210 * KK.def.scale, T.facing);
+            fx.rings.push({ x: KK.x - T.facing * KK.half * 0.6, y: GROUND - 210 * KK.def.scale, r: 0, max: 220, life: 0.45, color: '#ffd36b' });
+          },
+        };
+      } else {
+        T.vx += T.facing * 1500; // ngoài tầm: vẫn lao tới nhưng hụt
+        sfx.whiff();
+      }
+      return;
     }
     const dx = (K.x - T.x) * T.facing;
     if (dx > -40 && dx < m.range + K.half) {
@@ -821,6 +854,10 @@
     fx.flash = 0.4;
     burst(K.x, GROUND - 160 * K.def.scale, 70, K.def.glow, 700, 1.2, 7, 300);
     floatText(K.x, GROUND - 380 * K.def.scale, 'ĐÃ HẠ GỤC!', '#7ff6ff', 40);
+    const T = game.titan;
+    T.celebrate = { t: -0.5, landed: false };
+    T.charge = null;
+    T.guard = false;
   }
 
   function hitTitan(dmg, kb, dir, opts = {}) {
@@ -830,6 +867,17 @@
       floatText(T.x, GROUND - 370, 'NÉ!', '#9ff', 22);
       return;
     }
+    // Trúng bất kỳ đòn nào cũng làm mất phát nạp và hủy đòn đang gồng.
+    if (T.charge) {
+      floatText(T.x, GROUND - 400, 'MẤT PHÁT NẠP', '#ff9b5e', 20);
+      T.charge = null;
+      sfx.deny();
+    }
+    for (const side of ['L', 'R']) {
+      const arm = T.arms[side];
+      if (arm && !arm.fired) T.arms[side] = null;
+    }
+    T.slide = null;
     let d = dmg;
     let blocked = T.guard && !opts.unblockable;
     if (blocked && T.energy < BLOCK_COST) {
@@ -855,8 +903,6 @@
       T.stagger = 0.35;
       T.arms.L = null;
       T.arms.R = null;
-      if (T.charge) floatText(T.x, GROUND - 400, 'MẤT PHÁT NẠP', '#ff9b5e', 18);
-      T.charge = null;
       T.link = Math.max(0, T.link - 6 - (opts.linkDrain || 0));
       sfx.hurt();
       shake(14);
@@ -916,6 +962,50 @@
     sfx.cannonShot(lv);
   }
 
+  // ĂN MỪNG CHIẾN THẮNG: khuỵu gối lấy đà → thruster bật nhảy xoay nửa vòng → đáp đất dang tay.
+  const CEL = { crouch: 0.35, jump: 0.75, hold: 1.9 };
+  function celebratePhase(c) {
+    const t = Math.max(0, c.t);
+    if (c.t < 0) return { name: 'wait', k: 0 };
+    if (t < CEL.crouch) return { name: 'crouch', k: t / CEL.crouch };
+    if (t < CEL.crouch + CEL.jump) return { name: 'jump', k: (t - CEL.crouch) / CEL.jump };
+    return { name: 'pose', k: clamp((t - CEL.crouch - CEL.jump) / CEL.hold, 0, 1) };
+  }
+
+  function updateCelebration(T, dt) {
+    const c = T.celebrate;
+    c.t += dt;
+    T.vx *= Math.pow(0.01, dt);
+    T.x += T.vx * dt;
+    T.arms.L = null;
+    T.arms.R = null;
+    T.moving = false;
+    const ph = celebratePhase(c);
+    if (ph.name === 'jump') {
+      T.airY = Math.sin(ph.k * Math.PI) * 170;
+      if (!c.launched) {
+        c.launched = true;
+        sfx.dash();
+        sfx.cheer();
+        burst(T.x, GROUND - 6, 24, '#8c93a3', 260, 1.2, 9, -30, true);
+      }
+      burst(T.x - T.facing * 60, GROUND - 200 - T.airY, 3, pick(['#bff8ff', '#7fe3ff', '#ffffff']), 160, 0.35, 5, 400);
+    } else {
+      T.airY = 0;
+    }
+    if (ph.name === 'pose' && !c.landed) {
+      c.landed = true;
+      T.facing = -T.facing; // đã xoay nửa vòng trên không
+      shake(20);
+      fx.flash = 0.35;
+      sfx.jetBoom();
+      fx.rings.push({ x: T.x, y: GROUND - 10, r: 0, max: 520, life: 0.8, color: '#7ff6ff' });
+      burst(T.x, GROUND - 6, 60, '#8c93a3', 520, 1.6, 10, -20, true);
+      burst(T.x, GROUND - 260, 40, '#bff8ff', 600, 0.9, 5, 300);
+      game.cheerT = 2.4;
+    }
+  }
+
   function updateTitan(dt) {
     const T = game.titan;
     const K = game.kaiju;
@@ -931,12 +1021,28 @@
     if (T.regenDelay > 0) T.regenDelay -= dt;
     else T.energy = Math.min(100, T.energy + M.regen * dt);
 
+    if (T.celebrate) {
+      updateCelebration(T, dt);
+      return;
+    }
     if (T.beaming) {
       T.x += T.vx * dt;
       T.vx *= Math.pow(0.01, dt);
       return;
     }
 
+    if (T.slide) {
+      const S = T.slide;
+      S.t += dt;
+      const target = K && !K.dying ? K.x - T.facing * (K.half + TITAN_HALF - 12) : S.from;
+      T.x = lerp(S.from, target, easeOut(clamp(S.t / S.dur, 0, 1)));
+      T.vx = 0;
+      if (Math.random() < 0.8) burst(T.x - T.facing * 50, GROUND - 6, 3, '#8c93a3', 160, 0.8, 8, -20, true);
+      if (S.t >= S.dur) {
+        T.slide = null;
+        S.onArrive();
+      }
+    }
     if (K && !K.dying && !T.arms.L && !T.arms.R) T.facing = K.x >= T.x ? 1 : -1;
 
     let move = (held('KeyD') ? 1 : 0) - (held('KeyA') ? 1 : 0);
@@ -944,7 +1050,7 @@
       T.stagger -= dt;
       move = 0;
     }
-    T.guard = held('KeyS') && T.stagger <= 0 && !T.arms.L;
+    T.guard = held('KeyS') && T.stagger <= 0 && !T.arms.L && !T.charge;
 
     let spd = 270;
     if (T.guard) spd *= 0.35;
@@ -1017,7 +1123,7 @@
     }
 
     // Không cho hai bên đè lên nhau (trừ khi lướt né hoặc quái lao húc).
-    if (live && T.dashT < 0.18 && !(K.state === 'active' && K.move === 'charge')) {
+    if (live && !T.slide && T.dashT < 0.18 && !(K.state === 'active' && K.move === 'charge')) {
       const min = K.half + TITAN_HALF - 10;
       const d = T.x - K.x;
       if (Math.abs(d) < min) {
@@ -1436,6 +1542,7 @@
     game.stateT = 0;
     game.waveTime = 0;
     game.bannerT = 4;
+    game.cheerT = 0;
     game.helpT = 0;
     game.showHelp = false; // vào trận là ẩn hướng dẫn; bấm H để xem lại
     game.cam = clamp(game.titan.x - W / 2 + 300, 0, WORLD_W - W);
@@ -1486,7 +1593,7 @@
     updateBuildings(dt);
     if (game.state !== 'fight') return;
     if (cityIntegrity() < LOSE_CITY) endWave('city');
-    else if (game.kaiju && game.kaiju.dying && game.kaiju.deathT > 3.2) finishWave();
+    else if (game.kaiju && game.kaiju.dying && game.kaiju.deathT > 3.6) finishWave();
   }
 
   function update(dt) {
@@ -1508,6 +1615,7 @@
         if (tap('KeyH')) game.showHelp = !game.showHelp;
         game.helpT -= dt;
         game.bannerT -= dt;
+        game.cheerT -= dt;
         if (fx.hitstop > 0) {
           fx.hitstop -= dt;
           break;
@@ -1520,6 +1628,7 @@
         break;
       case 'clear':
         updateBuildings(dt);
+        game.cheerT -= dt;
         if (game.stateT > 0.8 && tapAny('Enter', 'NumpadEnter', 'Space')) {
           game.state = game.wave >= WAVES.length - 1 ? 'win' : 'upgrade';
           game.stateT = 0;
@@ -1887,6 +1996,7 @@
     const a = T.arms[side];
     const breathe = Math.sin(game.t * 2 + (side === 'L' ? 0 : 1.2)) * 3;
     const rest = side === 'L' ? { x: -64, y: -166 + breathe } : { x: 76, y: -160 + breathe };
+    if (T.celebrate) return celebrateArm(T, side);
     if (T.beaming) return side === 'L' ? { x: 30, y: -250 } : { x: 110, y: -236 };
     if (side === 'R' && T.charge) return { x: 200, y: -256, charging: true };
     if (!a) {
@@ -1969,7 +2079,24 @@
     ctx.restore();
   }
 
+  function celebrateArm(T, side) {
+    const ph = celebratePhase(T.celebrate);
+    const low = side === 'L' ? { x: -40, y: -150 } : { x: 50, y: -150 };
+    const up = side === 'L' ? { x: -30, y: -400 } : { x: 70, y: -404 };
+    const spread = side === 'L' ? { x: -150, y: -176 } : { x: 162, y: -182 };
+    const mix = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k) });
+    if (ph.name === 'wait') return mix(side === 'L' ? { x: -64, y: -166 } : { x: 76, y: -160 }, low, 0.5);
+    if (ph.name === 'crouch') return mix(low, low, 1);
+    if (ph.name === 'jump') return ph.k < 0.6 ? mix(low, up, easeOut(ph.k / 0.6)) : mix(up, spread, easeInOut((ph.k - 0.6) / 0.4));
+    const shakeArm = Math.sin(game.t * 40) * 2 * (1 - ph.k);
+    return { x: spread.x, y: spread.y + shakeArm };
+  }
+
   function titanLean(T) {
+    if (T.celebrate) {
+      const ph = celebratePhase(T.celebrate);
+      return ph.name === 'crouch' ? 0.1 * ph.k : ph.name === 'pose' ? -0.1 : 0;
+    }
     let lean = 0;
     for (const side of ['L', 'R']) {
       const a = T.arms[side];
@@ -2232,6 +2359,17 @@
 
   function drawTitan(T) {
     if (!T) return;
+    const ja = T.arms.R;
+    if (ja && ja.name === 'jet' && ja.t < ja.windup) {
+      const K = game.kaiju;
+      const inRange = K && !K.dying && (K.x - T.x) * T.facing > -40 && (K.x - T.x) * T.facing < JET_REACH + K.half;
+      const x0 = T.x - game.cam;
+      const len = JET_REACH * T.facing;
+      const k = ja.t / ja.windup;
+      ctx.fillStyle = inRange ? `rgba(127,246,255,${0.15 + 0.25 * k})` : `rgba(255,155,61,${0.12 + 0.2 * k})`;
+      ctx.fillRect(Math.min(x0, x0 + len), GROUND - 5, Math.abs(len), 10);
+      ctx.fillRect(x0 + len - (T.facing > 0 ? 4 : 0), GROUND - 22, 4, 34);
+    }
     const flash = T.hitFlash > 0;
     const lc = linkColor(T.link);
     const F = flash ? MECH.flash : MECH.front;
@@ -2243,7 +2381,23 @@
     const bob = T.moving ? -Math.abs(Math.cos(ph)) * 8 + 4 : Math.sin(game.t * 2) * 2.5;
     const lift1 = T.moving ? Math.max(0, Math.cos(ph)) : 0;
     const lift2 = T.moving ? Math.max(0, -Math.cos(ph)) : 0;
-    const crouch = T.guard ? 14 : T.stagger > 0 ? 10 : 0;
+    let crouch = T.guard ? 14 : T.stagger > 0 ? 10 : 0;
+    let spin = 1;
+    let spreadFeet = 0;
+    let celPh = null;
+    if (T.celebrate) {
+      celPh = celebratePhase(T.celebrate);
+      if (celPh.name === 'crouch') crouch = 26 * easeOut(celPh.k);
+      else if (celPh.name === 'jump') {
+        crouch = celPh.k < 0.15 ? 26 * (1 - celPh.k / 0.15) : celPh.k > 0.85 ? 30 * ((celPh.k - 0.85) / 0.15) : -10;
+        spin = Math.cos(celPh.k * Math.PI); // xoay nửa vòng (lật mặt) trên không
+        if (Math.abs(spin) < 0.12) spin = 0.12 * Math.sign(spin || 1);
+      } else if (celPh.name === 'pose') {
+        crouch = 30 * (1 - easeOut(Math.min(1, celPh.k * 3))) + 6;
+        spreadFeet = 1;
+      }
+      if (celPh.name === 'jump') spreadFeet = celPh.k > 0.7 ? (celPh.k - 0.7) / 0.3 : 0;
+    }
     const by = bob + crouch;
 
     // tia lửa bắn ra khi giáp còn dưới 35%
@@ -2263,11 +2417,33 @@
 
     ctx.save();
     ctx.translate(T.x - game.cam, GROUND);
-    ctx.fillStyle = 'rgba(0,0,0,0.42)';
-    ellipse(0, 2, 105, 11);
+    ctx.fillStyle = `rgba(0,0,0,${0.42 * (1 - T.airY / 300)})`;
+    ellipse(0, 2, 105 * (1 - T.airY / 400), 11);
     ctx.fill();
-    ctx.scale(T.facing * TITAN_SCALE, TITAN_SCALE);
+    ctx.translate(0, -T.airY);
+    ctx.scale(T.facing * TITAN_SCALE * spin, TITAN_SCALE);
     if (T.inv > 0) ctx.globalAlpha = 0.6 + 0.3 * Math.sin(game.t * 60);
+
+    // thruster phụt lửa xuống khi bật nhảy ăn mừng
+    if (celPh && celPh.name === 'jump' && celPh.k < 0.75) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 3; i++) {
+        const fx0 = -78 + i * 9;
+        const l = rand(120, 200) * (1 - celPh.k * 0.8);
+        const g = ctx.createLinearGradient(0, -210, 0, -210 + l);
+        g.addColorStop(0, 'rgba(220,250,255,0.95)');
+        g.addColorStop(0.4, 'rgba(120,210,255,0.7)');
+        g.addColorStop(1, 'rgba(60,140,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(fx0 - 7, -212);
+        ctx.lineTo(fx0, -212 + l);
+        ctx.lineTo(fx0 + 7, -212);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
 
     // lửa thruster khi lướt
     if (T.dashT > 0.2) {
@@ -2294,7 +2470,7 @@
     const hip = -158 + by;
 
     // chân sau + tay sau (trong bóng tối)
-    drawTitanLeg(-26, hip + 6, -34 + s2 * (T.moving ? 24 : 0) - crouch * 0.5, -lift2 * 22, B, lift2);
+    drawTitanLeg(-26, hip + 6, -34 - 44 * spreadFeet + s2 * (T.moving ? 24 : 0) - crouch * 0.5, -lift2 * 22, B, lift2);
 
     ctx.save();
     ctx.translate(0, hip);
@@ -2304,7 +2480,7 @@
     drawPauldron(-62, -290 + by, B, true, T, by, -1);
     ctx.restore();
 
-    drawTitanLeg(26, hip + 6, 36 + s1 * (T.moving ? 24 : 0) + crouch * 0.6, -lift1 * 22, F, lift1);
+    drawTitanLeg(26, hip + 6, 36 + 50 * spreadFeet + s1 * (T.moving ? 24 : 0) + crouch * 0.6, -lift1 * 22, F, lift1);
 
     // hông + váy giáp
     rr(-42, hip - 18, 84, 34, 8);
@@ -3163,6 +3339,16 @@
     text('H hướng dẫn · P tạm dừng · M nhạc & âm thanh' + (sfx.muted ? ' (tắt)' : ''), 20, H - 18, { size: 12, color: 'rgba(200,220,240,0.5)', weight: 600 });
 
     if (game.showHelp || game.helpT > 0) drawHelp(game.showHelp ? 1 : clamp(game.helpT, 0, 1), 150);
+
+    if (game.cheerT > 0) {
+      const age = 2.4 - game.cheerT;
+      const pop = age < 0.18 ? lerp(2.2, 0.9, age / 0.18) : age < 0.3 ? lerp(0.9, 1, (age - 0.18) / 0.12) : 1;
+      ctx.save();
+      ctx.translate(cx, 250);
+      ctx.scale(pop, pop);
+      text('EYERIIIM!', 0, 0, { size: 96, align: 'center', color: '#ffffff', glow: '#4ff0ff', blur: 34, weight: 900, alpha: clamp(game.cheerT / 0.4, 0, 1) });
+      ctx.restore();
+    }
 
     if (game.bannerT > 0 && K) {
       const a = clamp(game.bannerT, 0, 1) * clamp((4 - game.bannerT) * 3, 0, 1);
