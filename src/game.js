@@ -14,9 +14,16 @@
   const WORLD_W = 3400;
   const CITY_END = 2330;
   const SHORE_X = 2760;
-  const TITAN_HALF = 55;
-  const TITAN_SCALE = 1;
-  const CHARGE_TIME = 1.4; // giây để nạp đầy pháo plasma
+  // Thu nhỏ đều toàn bộ Titan (giữ nguyên tỷ lệ) để thấp hơn quái vật một chút.
+  const TITAN_SCALE = 0.64;
+  const TITAN_HALF = Math.round(55 * TITAN_SCALE);
+  // Chiều cao Titan (từ chân tới đỉnh đầu, toạ độ gốc 450px) và tầm chắc trúng của chiêu I = 2 lần chiều cao.
+  const TITAN_HEIGHT = 450 * TITAN_SCALE;
+  const SPECIAL_RANGE = 2 * TITAN_HEIGHT;
+  // Nâng phần thân trên để chân dài ra: chân ≈ 55% chiều cao Titan.
+  const BODY_LIFT = 66;
+  const CHARGE_TIME = 2.4; // giây để nạp đầy vũ khí L (pháo plasma / tên lửa)
+  const CHARGE_LOCK = 0.8; // phải nạp tối thiểu chừng này giây mới bắn được
   const CHARGE_MIN = 15; // năng lượng tốn ngay khi bắt đầu nạp
   const CHARGE_MAX = 50; // tổng năng lượng khi nạp đầy
   const REGEN_DELAY = 1.2;
@@ -71,7 +78,8 @@
 
   function ellipse(x, y, rx, ry, rot = 0) {
     ctx.beginPath();
-    ctx.ellipse(x, y, rx, ry, rot, 0, PI2);
+    // bán kính âm làm canvas thật ném lỗi và dừng cả vòng lặp game → luôn chặn về ≥ 0
+    ctx.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), rot, 0, PI2);
   }
 
   // ============================================================ BÀN PHÍM
@@ -155,6 +163,8 @@
     cannon() {},
     cannonShot(lv) { this.tone(900 - 500 * lv, 0.25 + 0.4 * lv, 'sawtooth', 0.1 + 0.08 * lv, 80); this.noise(0.15 + 0.5 * lv, 0.2 + 0.3 * lv, 3000 - 2000 * lv); },
     jetIgnite() { this.noise(0.5, 0.25, 900); this.tone(90, 0.5, 'sawtooth', 0.08, 260); },
+    satCall() { [0, 0.12, 0.24].forEach((d) => this.tone(1400, 0.07, 'square', 0.06, null, d)); },
+    satIncoming() { this.tone(2200, 0.5, 'sine', 0.05, 500); },
     jetBoom() { this.noise(0.7, 0.5, 1400); this.tone(70, 0.5, 'sawtooth', 0.2, 30); },
     chargeStart() { this.tone(180, CHARGE_TIME, 'sawtooth', 0.05, 1100); },
     chargeFull() { this.tone(1320, 0.12, 'square', 0.07); this.tone(1760, 0.2, 'square', 0.07, null, 0.08); },
@@ -225,7 +235,7 @@
       this.ok = false;
       this.audio.src = URL.createObjectURL(file);
       this.audio.play().catch(() => {});
-      floatText(game.titan ? game.titan.x : W / 2, GROUND - 420, '♪ ' + file.name, '#7ff6ff', 20);
+      floatText(game.titan ? game.titan.x : W / 2, GROUND - (420 + BODY_LIFT) * TITAN_SCALE, '♪ ' + file.name, '#7ff6ff', 20);
     },
     update() {
       if (!this.audio || !this.ok) return;
@@ -468,8 +478,58 @@
     blade: { arm: 'R', windup: 0.32, active: 0.2, recover: 0.42, dmg: 24, range: 320, kb: 440, heavy: true },
     cannon: { arm: 'R', windup: 0.06, active: 0.08, recover: 0.34, projectile: true },
     // Cú đấm phản lực: động cơ ở khuỷu tay mồi lửa rồi phóng cả Titan lao tới.
-    jet: { arm: 'R', windup: 0.45, active: 0.18, recover: 0.5, dmg: 34, range: 330, kb: 760, heavy: true, energy: 25 },
+    // Phím I: bấm 1 lần là tụ chiêu (windup 1s); bị trúng đòn trong lúc tụ thì mất chiêu.
+    jet: { arm: 'R', windup: 1.0, active: 0.18, recover: 0.5, dmg: 34, range: 330, kb: 150, heavy: true, energy: 25 },
   };
+
+  // Các Titan có thể chọn. Cả hai đều là thiết kế riêng của game.
+  // stats: điểm 1–5 chỉ để hiển thị trên màn hình chọn.
+  // moves: đòn thay thế cho ô K (blade) và L (cannon) của Titan đó.
+  const TITANS = [
+    {
+      id: 'vanguard', name: 'EYERIM VANGUARD', role: 'CHIẾN ĐẤU TRỰC DIỆN · GIÁP NẶNG',
+      desc: 'Khung giáp trắng-thép bền bỉ. Kiếm xích tầm xa và pháo plasma nạp lực.',
+      hp: 150, speed: 270, power: 1, quick: 1, regen: 1,
+      stats: { armor: 5, speed: 3, power: 4, energy: 3 },
+      weapons: [['I', 'Đấm phản lực — lao tới, chắc trúng'], ['K', 'Kiếm xích — chém nặng, tầm xa'], ['L', 'Pháo plasma — giữ để nạp, thả để bắn']],
+      special: 'jetpunch',
+      ult: 'reactor', ultName: 'XUNG LÒ PHẢN ỨNG',
+      head: 'visor', missiles: false, wristBlades: false,
+      pal: {
+        front: { hi: '#f2f5f8', armor: '#c9d1db', lo: '#7d8a99', frame: '#262f3a', frameHi: '#3d4958', accent: '#ff8a1f', line: 'rgba(8,14,22,0.6)' },
+        back: { hi: '#9aa5b2', armor: '#76828f', lo: '#4c5663', frame: '#161c24', frameHi: '#252e39', accent: '#a65a17', line: 'rgba(4,7,10,0.6)' },
+      },
+      moves: {},
+    },
+    {
+      id: 'tempest', name: 'EYERIM TEMPEST', role: 'TẤN CÔNG CHỚP NHOÁNG · CƠ ĐỘNG',
+      desc: 'Khung giáp đỏ thẫm nhẹ và nhanh. Lưỡi kép ở cổ tay, ngực là bệ phóng 6 tên lửa.',
+      hp: 115, speed: 340, power: 0.9, quick: 0.75, regen: 1.3,
+      stats: { armor: 3, speed: 5, power: 3, energy: 5 },
+      weapons: [['I', 'Đập phản lực — bay lên, nện xuống đầu quái'], ['K', 'Lưỡi kép cổ tay — chém nhanh, choáng'], ['L', '6 tên lửa — giữ đủ 2s mới phóng, nạp lại 4,5s']],
+      special: 'leap',
+      ult: 'orbital', ultName: 'MƯA TÊN LỬA VỆ TINH',
+      head: 'sensor', missiles: true, wristBlades: true,
+      pal: {
+        front: { hi: '#e7a3a0', armor: '#a8343a', lo: '#5e1a20', frame: '#1d2024', frameHi: '#353a41', accent: '#5dffb0', line: 'rgba(16,6,8,0.6)' },
+        back: { hi: '#8f5457', armor: '#6a2228', lo: '#3a1014', frame: '#121417', frameHi: '#22262b', accent: '#2f9a6a', line: 'rgba(8,3,4,0.6)' },
+      },
+      moves: {
+        blade: { arm: 'R', windup: 0.16, active: 0.14, recover: 0.26, dmg: 17, range: 240, kb: 300, heavy: true },
+        // tên lửa: mở nắp + khóa mục tiêu lâu, hồi lâu (đòn mạnh nên phải trả giá bằng thời gian)
+        cannon: { arm: 'R', windup: 0.4, active: 0.1, recover: 0.8, projectile: true },
+        // đập phản lực: gồng → bay lên → nện xuống đầu quái (tay bận suốt cú nhảy)
+        jet: { arm: 'R', windup: 1.0, active: 0.2, recover: 0.7, dmg: 36, range: 330, kb: 150, heavy: true, energy: 25 },
+      },
+    },
+  ];
+  const STRIKE_DELAY = 0.9; // TEMPEST (chiêu đặc biệt): giây từ lúc khóa tới khi mỗi tên lửa vệ tinh rơi trúng
+  const LEAP = { up: 0.34, smash: 0.14, fall: 0.32 }; // TEMPEST: thời lượng các pha đập phản lực
+  const MISSILE_CHARGE = 2.0; // TEMPEST: giữ L đủ chừng này giây mới phóng được (thả sớm = hủy)
+  const LINK_HOLD = 5; // giây Link được khóa ở 100% để kịp tung chiêu đặc biệt
+  const MISSILE_RELOAD = 4.5; // giây để nạp lại đủ 6 tên lửa sau mỗi loạt
+  const curDef = () => TITANS[game.titanIdx] || TITANS[0];
+  const tmove = (T, name) => (T.def.moves[name] || TMOVES[name]);
 
   // Đòn của quái vật Abyssal.
   const KMOVES = {
@@ -503,7 +563,7 @@
   const UPGRADES = [
     { id: 'armor', name: 'Giáp hợp kim', desc: '+30 HP tối đa cho Titan', cost: 40 },
     { id: 'reactor', name: 'Lò phản ứng', desc: '+35% tốc độ hồi năng lượng', cost: 35 },
-    { id: 'blade', name: 'Lõi plasma', desc: '+25% sát thương kiếm xích, pháo và TIDEBREAKER', cost: 45 },
+    { id: 'blade', name: 'Lõi plasma', desc: '+25% sát thương vũ khí hạng nặng (K, L) và TIDEBREAKER', cost: 45 },
     { id: 'neural', name: 'Bộ khuếch đại Link', desc: 'Cửa sổ đồng bộ rộng hơn, Link giảm chậm hơn', cost: 40 },
   ];
   const UPGRADE_MAX = 3;
@@ -511,6 +571,8 @@
 
   const game = {
     state: 'title',
+    titanIdx: 0,
+    pick: 0,
     t: 0,
     stateT: 0,
     wave: 0,
@@ -520,6 +582,8 @@
     kaiju: null,
     buildings: [],
     projectiles: [],
+    strikes: [],
+    barrage: null,
     beam: null,
     cam: 0,
     showHelp: false,
@@ -535,17 +599,18 @@
     const u = game.upgrades;
     return {
       blade: 1 + 0.25 * u.blade,
-      regen: 7 * (1 + 0.35 * u.reactor),
+      regen: 7 * (1 + 0.35 * u.reactor) * curDef().regen,
       sync: SYNC_WINDOW + 0.05 * u.neural,
       decay: Math.max(0.3, 1.5 - 0.35 * u.neural),
     };
   }
 
   // ============================================================ TẠO ĐỐI TƯỢNG
-  function makeTitan() {
-    const maxHp = 150 + game.upgrades.armor * 30;
+  function makeTitan(def = curDef()) {
+    const maxHp = def.hp + game.upgrades.armor * 30;
     return {
-      x: 2200, vx: 0, facing: 1,
+      def,
+      x: 2200, vx: 0, facing: 1, missileCD: 0, leap: null, leapHits: 0,
       hp: maxHp, maxHp, ghost: maxHp,
       energy: 100, link: 60,
       guard: false, moving: false,
@@ -553,7 +618,7 @@
       p1Flash: 0, p2Flash: 0,
       arms: { L: null, R: null },
       syncPending: null, syncCount: 0,
-      charge: null, regenDelay: 0, slide: null,
+      charge: null, regenDelay: 0, linkHold: 0, slide: null,
       beaming: false,
       celebrate: null, airY: 0,
     };
@@ -666,12 +731,13 @@
   // ============================================================ ĐIỀU KHIỂN TITAN
   function titanAttack(name, level = 0) {
     const T = game.titan;
-    const m = TMOVES[name];
+    const m = tmove(T, name);
     const M = mods();
     if (T.arms[m.arm] || T.beaming) return;
+    if (m.arm === 'R' && T.charge && name !== 'cannon') return; // tay phải đang nạp vũ khí L
     if (m.arm === 'L' && T.guard) return;
     if (m.energy && T.energy < m.energy) {
-      floatText(T.x, GROUND - 370, 'THIẾU NĂNG LƯỢNG', '#ff9b5e', 18);
+      floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'THIẾU NĂNG LƯỢNG', '#ff9b5e', 18);
       sfx.deny();
       return;
     }
@@ -680,7 +746,8 @@
       T.regenDelay = REGEN_DELAY;
     }
     if (name === 'jet') sfx.jetIgnite();
-    T.arms[m.arm] = { name, m, t: 0, windup: m.windup * (T.link < 25 ? 1.6 : 1), fired: false, sync: false, level };
+    const quick = name === 'jab' || name === 'hook' ? T.def.quick : 1;
+    T.arms[m.arm] = { name, m, t: 0, windup: m.windup * quick * (T.link < 25 ? 1.6 : 1), fired: false, sync: false, level };
     if (m.arm === 'L') T.p1Flash = 0.3;
     else T.p2Flash = 0.3;
 
@@ -704,8 +771,9 @@
       return;
     }
     T.link = Math.min(100, T.link + 12);
+    if (T.link >= 100 && T.linkHold <= 0) T.linkHold = LINK_HOLD;
     sfx.sync();
-    floatText(T.x, GROUND - 390, T.link >= 100 ? 'LINK 100%!' : 'ĐỒNG BỘ!', '#7ff6ff', 26);
+    floatText(T.x, GROUND - (390 + BODY_LIFT) * TITAN_SCALE, T.link >= 100 ? 'LINK 100%!' : 'ĐỒNG BỘ!', '#7ff6ff', 26);
   }
 
   function fireBeam() {
@@ -715,11 +783,26 @@
     T.beaming = true;
     T.guard = false;
     T.charge = null;
+    T.linkHold = 0;
+    floatText(T.x, GROUND - (410 + BODY_LIFT) * TITAN_SCALE, T.def.ultName + '!', '#ffffff', 36);
+    if (T.def.ult === 'orbital') {
+      // TEMPEST: gọi một loạt 6 tên lửa vệ tinh, khóa chắc vào quái, rơi nối tiếp nhau
+      game.barrage = { t: 0, dur: STRIKE_DELAY + 5 * 0.2 + 0.4 };
+      const K = game.kaiju;
+      const M = mods();
+      for (let i = 0; i < 6; i++) {
+        game.strikes.push({ t: -i * 0.2, lock: true, dmg: 16 * M.blade, kb: i === 5 ? 700 : 60, dir: T.facing, x: K ? K.x : T.x, y: K ? GROUND - 230 * K.def.scale : GROUND - 200 });
+      }
+      sfx.satCall();
+      shake(8);
+      fx.flash = 0.3;
+      return;
+    }
+    // VANGUARD: lò phản ứng trên ngực phóng tia năng lượng toàn lực
     game.beam = { t: 0, dur: 1.5, tick: 0 };
     sfx.beam();
     shake(16);
     fx.flash = 0.6;
-    floatText(T.x, GROUND - 410, 'TIDEBREAKER!', '#ffffff', 42);
   }
 
   function resolveTitanHit(a) {
@@ -727,9 +810,13 @@
     const K = game.kaiju;
     const M = mods();
     const m = a.m;
+    if (m.projectile && T.def.missiles) {
+      launchMissiles(T, a);
+      return;
+    }
     if (m.projectile) {
       const x0 = T.x + T.facing * 225 * TITAN_SCALE;
-      const y0 = GROUND - 256 * TITAN_SCALE;
+      const y0 = GROUND - (256 + BODY_LIFT) * TITAN_SCALE;
       let vx = T.facing * 1150;
       let vy = 0;
       if (K && !K.dying) {
@@ -750,7 +837,7 @@
       });
       shake(3 + 12 * lv);
       T.vx -= T.facing * 500 * lv; // giật lùi khi bắn phát mạnh
-      if (lv >= 0.99) floatText(T.x, GROUND - 400, 'PLASMA TỐI ĐA!', '#bff8ff', 26);
+      if (lv >= 0.99) floatText(T.x, GROUND - (400 + BODY_LIFT) * TITAN_SCALE, 'PLASMA TỐI ĐA!', '#bff8ff', 26);
       T.muzzle = 0.12;
       sfx.cannon();
       burst(x0, y0, 10, '#9ff', 200, 0.3, 4, 0);
@@ -760,12 +847,17 @@
       sfx.whiff();
       return;
     }
+    if (a.name === 'jet' && T.def.special === 'leap') {
+      startLeap(T, a);
+      return;
+    }
     if (a.name === 'jet') {
       sfx.jetBoom();
       shake(10);
-      fx.rings.push({ x: T.x - T.facing * 40, y: GROUND - 250, r: 0, max: 160, life: 0.4, color: '#ffb347' });
+      fx.rings.push({ x: T.x - T.facing * 40, y: GROUND - (BODY_LIFT + 250) * TITAN_SCALE, r: 0, max: 160, life: 0.4, color: '#ffb347' });
+      T.facing = K.x >= T.x ? 1 : -1;
       const jdx = (K.x - T.x) * T.facing;
-      if (jdx > -40 && jdx < JET_REACH + K.half) {
+      if (specialCanHit(K)) {
         // chắc chắn trúng: Titan trượt tới sát quái rồi mới giáng đòn
         const sync = a.sync;
         T.slide = {
@@ -784,14 +876,14 @@
           },
         };
       } else {
-        T.vx += T.facing * 1500; // ngoài tầm: vẫn lao tới nhưng hụt
+        T.vx += T.facing * 1500; // ngoài tầm (quá 2 lần chiều cao Titan): vẫn lao tới nhưng hụt
         sfx.whiff();
       }
       return;
     }
     const dx = (K.x - T.x) * T.facing;
     if (dx > -40 && dx < m.range + K.half) {
-      let dmg = m.dmg * (a.name === 'blade' ? M.blade : 1);
+      let dmg = m.dmg * (a.name === 'blade' ? M.blade : T.def.power);
       let kb = m.kb;
       if (a.sync) {
         dmg *= 1.6;
@@ -803,6 +895,134 @@
     } else {
       sfx.whiff();
     }
+  }
+
+  // Chiêu I (đặc trưng của từng Titan) dùng chung một luật: quái đã lên bờ, còn sống và mép thân quái
+  // cách Titan không quá SPECIAL_RANGE (2 lần chiều cao Titan) thì chắc chắn trúng;
+  // trúng xong Titan đứng sát quái, trong tầm chém của vũ khí K.
+  const specialGap = (T, K) => Math.max(0, Math.abs(K.x - T.x) - K.half);
+  const specialCanHit = (K, T = game.titan) => !!(K && !K.dying && K.state !== 'emerge' && specialGap(T, K) <= SPECIAL_RANGE);
+  const specialStandX = (T, K) => K.x - T.facing * (K.half + TITAN_HALF - 12);
+
+  // TEMPEST · ĐẬP PHẢN LỰC: thruster lưng đẩy Titan vọt lên trên đầu quái rồi nện hai nắm đấm xuống.
+  function leapTarget(T, L) {
+    const K = game.kaiju;
+    if (L.inRange && K && !K.dying && K.state !== 'emerge') {
+      const s = K.def.scale;
+      const headX = K.x + K.facing * 182 * s;
+      const headY = 192 * s - K.y;
+      // nắm đấm ở tư thế đập cách thân ~109px ngang, ~190px dọc (đã nhân tỷ lệ Titan)
+      return { headX, headY, tx: headX - T.facing * 109, impactY: Math.max(20, headY - 190) };
+    }
+    return { headX: null, tx: L.fromX + T.facing * SPECIAL_RANGE * 0.6, impactY: 0 };
+  }
+
+  function startLeap(T, a) {
+    const K = game.kaiju;
+    if (K && !K.dying) T.facing = K.x >= T.x ? 1 : -1;
+    const inRange = specialCanHit(K);
+    T.leap = { t: 0, fromX: T.x, inRange, hit: false, sync: a.sync, m: a.m };
+    T.vx = 0;
+    sfx.dash();
+    shake(5);
+    burst(T.x, GROUND - 6, 26, '#8c93a3', 300, 1.1, 9, -30, true);
+    fx.rings.push({ x: T.x, y: GROUND - 8, r: 0, max: 200, life: 0.4, color: '#5dffb0' });
+  }
+
+  function updateLeap(T, dt) {
+    const L = T.leap;
+    L.t += dt;
+    T.vx = 0;
+    const tg = L.hit ? null : leapTarget(T, L);
+    if (tg) {
+      L.tx = tg.tx;
+      L.impactY = tg.impactY;
+      L.headX = tg.headX;
+      L.headY = tg.headY;
+    }
+    const apex = L.impactY + 150;
+    if (L.t < LEAP.up) {
+      const k = L.t / LEAP.up;
+      T.x = lerp(L.fromX, L.tx, easeOut(k));
+      T.airY = apex * Math.sin((k * Math.PI) / 2);
+      burst(T.x - T.facing * 30, GROUND - (BODY_LIFT + 150) * TITAN_SCALE - T.airY, 3, pick(['#ffffff', '#a8ffd8', '#5dffb0']), 160, 0.3, 5, 500);
+      return;
+    }
+    if (L.t < LEAP.up + LEAP.smash) {
+      const k = (L.t - LEAP.up) / LEAP.smash;
+      T.x = L.tx;
+      T.airY = lerp(apex, L.impactY, k * k);
+      return;
+    }
+    if (!L.hit) {
+      L.hit = true;
+      leapImpact(T, L);
+      const K = game.kaiju;
+      L.landFrom = T.x;
+      L.landTo = L.headX != null && K && !K.dying ? specialStandX(T, K) : T.x;
+      L.fallFrom = T.airY;
+    }
+    const k = clamp((L.t - LEAP.up - LEAP.smash) / LEAP.fall, 0, 1);
+    const KF = game.kaiju;
+    if (L.headX != null && KF && !KF.dying) L.landTo = specialStandX(T, KF); // bám theo quái nếu nó bị đẩy lùi
+    T.x = lerp(L.landFrom, L.landTo, easeOut(k));
+    T.airY = (L.fallFrom + 50 * Math.sin(k * Math.PI)) * (1 - k * k);
+    if (k >= 1) {
+      T.airY = 0;
+      T.leap = null;
+      shake(6);
+      burst(T.x, GROUND - 6, 20, '#8c93a3', 240, 1, 8, -20, true);
+    }
+  }
+
+  function leapImpact(T, L) {
+    const K = game.kaiju;
+    sfx.jetBoom();
+    if (L.headX != null && K && !K.dying) {
+      let dmg = L.m.dmg;
+      let kb = L.m.kb;
+      if (L.sync) {
+        dmg *= 1.6;
+        kb *= 1.4;
+      }
+      const hy = GROUND - L.headY;
+      damageKaiju(dmg, kb, true, L.headX, hy, T.facing);
+      fx.rings.push({ x: L.headX, y: hy, r: 0, max: 240, life: 0.45, color: '#5dffb0' });
+      burst(L.headX, hy, 30, pick(['#ffffff', '#a8ffd8', '#ffd36b']), 520, 0.6, 5, 400);
+      shake(16);
+      fx.flash = 0.25;
+      T.leapHits = (T.leapHits || 0) + 1;
+    } else {
+      // hụt: nện xuống đất
+      shake(9);
+      burst(T.x + T.facing * 60, GROUND - 6, 30, '#8c93a3', 360, 1.2, 9, -30, true);
+      fx.rings.push({ x: T.x + T.facing * 60, y: GROUND - 8, r: 0, max: 260, life: 0.5, color: '#8c93a3' });
+    }
+  }
+
+  // TEMPEST: loạt tên lửa từ hai bệ trên ngực, bay vồng lên rồi tự dẫn vào quái.
+  function launchMissiles(T, a) {
+    const lv = a.level;
+    const n = 6;
+    T.missileCD = MISSILE_RELOAD;
+    const M = mods();
+    for (let i = 0; i < n; i++) {
+      const c = i % 3;
+      const r = Math.floor(i / 3);
+      game.projectiles.push({
+        owner: 'titan', missile: true, home: 0.16 + i * 0.035,
+        x: T.x + T.facing * (LAUNCHER.x - 21 + c * 21) * TITAN_SCALE,
+        y: GROUND - (-LAUNCHER.y + BODY_LIFT + 12 - r * 24) * TITAN_SCALE,
+        vx: T.facing * (200 + c * 70 + rand(-30, 30)), vy: -(560 + r * 140 + rand(-40, 40)), g: 0,
+        r: 7, dmg: 9 * M.blade * (a.sync ? 1.5 : 1),
+        kb: 120, heavy: i === n - 1, life: 3,
+      });
+    }
+    shake(6);
+    floatText(T.x, GROUND - (400 + BODY_LIFT) * TITAN_SCALE, '6 TÊN LỬA!', '#5dffb0', 24);
+    T.muzzle = 0.12;
+    sfx.cannon();
+    burst(T.x + T.facing * LAUNCHER.x * TITAN_SCALE, GROUND - (-LAUNCHER.y + BODY_LIFT) * TITAN_SCALE, 16, '#ffd36b', 240, 0.4, 4, 0);
   }
 
   function damageKaiju(dmg, kb, heavy, hx, hy, dir, quiet = false) {
@@ -822,6 +1042,7 @@
       floatText(K.x, GROUND - 340 * K.def.scale, 'PHẢN ĐÒN!', '#ffe066', 34);
       sfx.counter();
       game.titan.link = Math.min(100, game.titan.link + 8);
+      if (game.titan.link >= 100 && game.titan.linkHold <= 0) game.titan.linkHold = LINK_HOLD;
     } else if (heavy && !charging && K.poiseT <= 0 && K.state !== 'stun' && K.state !== 'emerge') {
       // Choáng ngắn, sau đó quái vật được miễn choáng một lúc để không bị khóa cứng.
       K.state = 'stun';
@@ -864,18 +1085,24 @@
     const T = game.titan;
     if (game.state !== 'fight') return;
     if (T.inv > 0) {
-      floatText(T.x, GROUND - 370, 'NÉ!', '#9ff', 22);
+      floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'NÉ!', '#9ff', 22);
       return;
     }
     // Trúng bất kỳ đòn nào cũng làm mất phát nạp và hủy đòn đang gồng.
     if (T.charge) {
-      floatText(T.x, GROUND - 400, 'MẤT PHÁT NẠP', '#ff9b5e', 20);
+      floatText(T.x, GROUND - (400 + BODY_LIFT) * TITAN_SCALE, 'MẤT PHÁT NẠP', '#ff9b5e', 20);
       T.charge = null;
       sfx.deny();
     }
     for (const side of ['L', 'R']) {
       const arm = T.arms[side];
-      if (arm && !arm.fired) T.arms[side] = null;
+      if (arm && !arm.fired) {
+        if (arm.name === 'jet') {
+          floatText(T.x, GROUND - (420 + BODY_LIFT) * TITAN_SCALE, 'MẤT CHIÊU!', '#ff5e4d', 26);
+          sfx.deny();
+        }
+        T.arms[side] = null;
+      }
     }
     T.slide = null;
     let d = dmg;
@@ -884,7 +1111,7 @@
       // hết năng lượng → vỡ thế thủ, lãnh trọn đòn
       blocked = false;
       T.guard = false;
-      floatText(T.x, GROUND - 400, 'VỠ THẾ THỦ!', '#ff5e4d', 26);
+      floatText(T.x, GROUND - (400 + BODY_LIFT) * TITAN_SCALE, 'VỠ THẾ THỦ!', '#ff5e4d', 26);
       d *= 1.33;
     }
     if (blocked) {
@@ -892,10 +1119,10 @@
       T.energy -= BLOCK_COST;
       T.regenDelay = REGEN_DELAY;
       T.vx += dir * kb * 0.35;
-      if (opts.linkDrain) T.link = Math.max(0, T.link - opts.linkDrain * 0.4);
+      if (opts.linkDrain && T.linkHold <= 0) T.link = Math.max(0, T.link - opts.linkDrain * 0.4);
       sfx.block();
       shake(4);
-      burst(T.x + T.facing * 60, GROUND - 260, 14, '#dff4ff', 380, 0.3, 3, 300);
+      burst(T.x + T.facing * 60, GROUND - (BODY_LIFT + 260) * TITAN_SCALE, 14, '#dff4ff', 380, 0.3, 3, 300);
     } else {
       if (T.guard) d *= 0.75;
       T.vx += dir * kb;
@@ -903,14 +1130,14 @@
       T.stagger = 0.35;
       T.arms.L = null;
       T.arms.R = null;
-      T.link = Math.max(0, T.link - 6 - (opts.linkDrain || 0));
+      if (T.linkHold <= 0) T.link = Math.max(0, T.link - 6 - (opts.linkDrain || 0));
       sfx.hurt();
       shake(14);
       fx.hitstop = 0.06;
-      burst(T.x, GROUND - 220, 20, '#ffb04a', 420, 0.6, 5);
+      burst(T.x, GROUND - (BODY_LIFT + 220) * TITAN_SCALE, 20, '#ffb04a', 420, 0.6, 5);
     }
     T.hp -= d;
-    floatText(T.x, GROUND - 350, (blocked ? 'ĐỠ -' : '-') + Math.round(d), blocked ? '#bfe8ff' : '#ff6b5e', blocked ? 18 : 26);
+    floatText(T.x, GROUND - (350 + BODY_LIFT) * TITAN_SCALE, (blocked ? 'ĐỠ -' : '-') + Math.round(d), blocked ? '#bfe8ff' : '#ff6b5e', blocked ? 18 : 26);
     if (T.hp <= 0) {
       T.hp = 0;
       endWave('titan');
@@ -922,8 +1149,13 @@
     const T = game.titan;
     if (!T.charge) {
       if (!tap('KeyL') || T.arms.R || T.beaming) return;
+      if (T.def.missiles && T.missileCD > 0) {
+        floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, `ĐANG NẠP ĐẠN · ${T.missileCD.toFixed(1)}s`, '#ffd36b', 18);
+        sfx.deny();
+        return;
+      }
       if (T.energy < CHARGE_MIN) {
-        floatText(T.x, GROUND - 370, 'THIẾU NĂNG LƯỢNG', '#ff9b5e', 18);
+        floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'THIẾU NĂNG LƯỢNG', '#ff9b5e', 18);
         sfx.deny();
         return;
       }
@@ -934,7 +1166,45 @@
     }
     const C = T.charge;
     T.regenDelay = REGEN_DELAY;
-    if (held('KeyL')) {
+    // TEMPEST: tất cả hoặc không — giữ đủ MISSILE_CHARGE mới phóng, thả sớm thì hủy.
+    if (T.def.missiles) {
+      if (held('KeyL')) {
+        if (C.t < MISSILE_CHARGE) {
+          const want = Math.min(1, (C.t + dt) / MISSILE_CHARGE);
+          const cost = CHARGE_MIN + (CHARGE_MAX - CHARGE_MIN) * want - C.spent;
+          if (cost <= T.energy) {
+            T.energy -= cost;
+            C.spent += cost;
+            C.t += dt;
+            C.level = want;
+          }
+          if (C.t >= MISSILE_CHARGE && !C.full) {
+            C.full = true;
+            C.level = 1;
+            sfx.chargeFull();
+          }
+        }
+        if (Math.random() < 0.3 + C.level) {
+          const a = rand(0, PI2);
+          const d = 40 + 30 * C.level;
+          burst(T.x + T.facing * LAUNCHER.x * TITAN_SCALE + Math.cos(a) * d, GROUND - (-LAUNCHER.y + BODY_LIFT) * TITAN_SCALE + Math.sin(a) * d, 1, '#ffd36b', 30, 0.25, 3, 0);
+        }
+        return;
+      }
+      T.charge = null;
+      if (C.full) {
+        titanAttack('cannon', 1);
+        sfx.cannonShot(1);
+      } else {
+        T.energy = Math.min(100, T.energy + C.spent); // hủy: hoàn lại năng lượng
+        floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'HỦY PHÓNG — CHƯA KHÓA XONG', '#ff9b5e', 18);
+        sfx.deny();
+      }
+      return;
+    }
+    // thả L sớm: vẫn tự nạp cho đủ thời gian tối thiểu rồi mới bắn
+    if (!held('KeyL') && C.t < CHARGE_LOCK) C.release = true;
+    if (held('KeyL') || C.t < CHARGE_LOCK) {
       // chỉ nạp tiếp khi còn năng lượng để trả
       const want = Math.min(1, (C.t + dt) / CHARGE_TIME);
       const cost = CHARGE_MIN + (CHARGE_MAX - CHARGE_MIN) * want - C.spent;
@@ -943,6 +1213,8 @@
         C.spent += cost;
         C.t += dt;
         C.level = want;
+      } else if (C.t < CHARGE_LOCK) {
+        C.t += dt; // hết năng lượng: giữ mức hiện tại nhưng vẫn đếm đủ thời gian tối thiểu
       }
       if (C.level >= 1 && !C.full) {
         C.full = true;
@@ -951,8 +1223,10 @@
       if (Math.random() < 0.3 + C.level) {
         const a = rand(0, PI2);
         const d = 40 + 30 * C.level;
-        const fx0 = T.x + T.facing * 225;
-        burst(fx0 + Math.cos(a) * d, GROUND - 256 + Math.sin(a) * d, 1, '#bff8ff', 30, 0.25, 3, 0);
+        const mis = T.def.missiles;
+        const fx0 = T.x + T.facing * (mis ? LAUNCHER.x : 225) * TITAN_SCALE;
+        const fy0 = GROUND - (mis ? -LAUNCHER.y + BODY_LIFT : 256 + BODY_LIFT) * TITAN_SCALE;
+        burst(fx0 + Math.cos(a) * d, fy0 + Math.sin(a) * d, 1, mis ? '#ffd36b' : '#bff8ff', 30, 0.25, 3, 0);
       }
       return;
     }
@@ -989,7 +1263,7 @@
         sfx.cheer();
         burst(T.x, GROUND - 6, 24, '#8c93a3', 260, 1.2, 9, -30, true);
       }
-      burst(T.x - T.facing * 60, GROUND - 200 - T.airY, 3, pick(['#bff8ff', '#7fe3ff', '#ffffff']), 160, 0.35, 5, 400);
+      burst(T.x - T.facing * 60, GROUND - (BODY_LIFT + 200) * TITAN_SCALE - T.airY, 3, pick(['#bff8ff', '#7fe3ff', '#ffffff']), 160, 0.35, 5, 400);
     } else {
       T.airY = 0;
     }
@@ -1001,7 +1275,7 @@
       sfx.jetBoom();
       fx.rings.push({ x: T.x, y: GROUND - 10, r: 0, max: 520, life: 0.8, color: '#7ff6ff' });
       burst(T.x, GROUND - 6, 60, '#8c93a3', 520, 1.6, 10, -20, true);
-      burst(T.x, GROUND - 260, 40, '#bff8ff', 600, 0.9, 5, 300);
+      burst(T.x, GROUND - (BODY_LIFT + 260) * TITAN_SCALE, 40, '#bff8ff', 600, 0.9, 5, 300);
       game.cheerT = 2.4;
     }
   }
@@ -1017,6 +1291,7 @@
     T.inv -= dt;
     T.dashT -= dt;
     T.muzzle -= dt;
+    if (T.missileCD > 0) T.missileCD -= dt;
     T.ghost = Math.max(T.hp, T.ghost - 40 * dt);
     if (T.regenDelay > 0) T.regenDelay -= dt;
     else T.energy = Math.min(100, T.energy + M.regen * dt);
@@ -1031,10 +1306,20 @@
       return;
     }
 
+    if (T.leap) {
+      updateLeap(T, dt);
+      for (const side of ['L', 'R']) {
+        const a = T.arms[side];
+        if (!a) continue;
+        a.t += dt;
+        if (a.t >= a.windup + a.m.active + a.m.recover && !T.leap) T.arms[side] = null;
+      }
+      return;
+    }
     if (T.slide) {
       const S = T.slide;
       S.t += dt;
-      const target = K && !K.dying ? K.x - T.facing * (K.half + TITAN_HALF - 12) : S.from;
+      const target = K && !K.dying ? specialStandX(T, K) : S.from;
       T.x = lerp(S.from, target, easeOut(clamp(S.t / S.dur, 0, 1)));
       T.vx = 0;
       if (Math.random() < 0.8) burst(T.x - T.facing * 50, GROUND - 6, 3, '#8c93a3', 160, 0.8, 8, -20, true);
@@ -1052,11 +1337,12 @@
     }
     T.guard = held('KeyS') && T.stagger <= 0 && !T.arms.L && !T.charge;
 
-    let spd = 270;
+    let spd = T.def.speed;
     if (T.guard) spd *= 0.35;
     if (T.link < 25) spd *= 0.6;
-    if (T.arms.R && T.arms.R.name === 'blade') spd *= 0.3;
+    if (T.arms.R && T.arms.R.name === 'blade') spd *= T.def.wristBlades ? 0.6 : 0.3;
     if (T.charge) spd *= 0.45;
+    if (T.def.missiles && T.arms.R && T.arms.R.name === 'cannon') spd *= 0.4;
 
     if (tap('KeyW') && T.stagger <= 0 && T.dashT <= 0) {
       if (T.energy >= 20) {
@@ -1069,7 +1355,7 @@
         sfx.dash();
         burst(T.x - dir * 40, GROUND - 120, 18, '#7fe3ff', 250, 0.4, 5, 0);
       } else {
-        floatText(T.x, GROUND - 370, 'THIẾU NĂNG LƯỢNG', '#ff9b5e', 18);
+        floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'THIẾU NĂNG LƯỢNG', '#ff9b5e', 18);
         sfx.deny();
       }
     }
@@ -1087,7 +1373,7 @@
     T.vx *= Math.pow(0.005, dt);
     if (Math.abs(T.vx) < 5) T.vx = 0;
     T.moving = move !== 0;
-    if (move) T.walkT += dt * move * T.facing * (spd / 270);
+    if (move) T.walkT += dt * move * T.facing * (spd / 270) * (270 / T.def.speed) ** 0.5;
     T.x = clamp(T.x, 80, SHORE_X + 320);
 
     // Bị hất văng vào tòa nhà.
@@ -1099,11 +1385,20 @@
       }
     }
 
-    // Link đầy (100%) được giữ nguyên cho tới khi tung TIDEBREAKER hoặc bị trúng đòn.
+    // Link chạm 100% được khóa LINK_HOLD giây (không mất vì trúng đòn), hết giờ mà chưa dùng chiêu đặc biệt thì tụt về 85.
+    if (T.linkHold > 0) {
+      T.link = 100;
+      T.linkHold -= dt;
+      if (T.linkHold <= 0) {
+        T.linkHold = 0;
+        T.link = 85;
+        floatText(T.x, GROUND - (400 + BODY_LIFT) * TITAN_SCALE, 'LINK TỤT', '#ff9b5e', 20);
+      }
+    }
     if (T.link > 40 && T.link < 100) T.link = Math.max(40, T.link - M.decay * dt);
     if (T.syncPending && game.t - T.syncPending.t > M.sync) {
       T.syncPending = null;
-      T.link = Math.max(0, T.link - 2);
+      if (T.linkHold <= 0) T.link = Math.max(0, T.link - 2);
     }
 
     for (const side of ['L', 'R']) {
@@ -1114,9 +1409,9 @@
         a.fired = true;
         resolveTitanHit(a);
       }
-      if (a.name === 'jet' && a.t < a.windup + a.m.active + 0.12) {
+      if (a.name === 'jet' && T.def.special !== 'leap' && a.t < a.windup + a.m.active + 0.12) {
         const n = a.t < a.windup ? 1 : 4;
-        burst(T.x - T.facing * 30, GROUND - 230, n, pick(['#ffd36b', '#ff9b3d', '#ffffff']), 160, 0.35, 4, -40);
+        burst(T.x - T.facing * 30, GROUND - (BODY_LIFT + 230) * TITAN_SCALE, n, pick(['#ffd36b', '#ff9b3d', '#ffffff']), 160, 0.35, 4, -40);
         if (a.t >= a.windup) burst(T.x - T.facing * 60, GROUND - 230, 2, '#8c93a3', 120, 0.9, 9, -20, true);
       }
       if (a.t >= a.windup + a.m.active + a.m.recover) T.arms[side] = null;
@@ -1370,7 +1665,7 @@
       if (T.inv > 0) {
         if (!K.dodged) {
           K.dodged = true;
-          floatText(T.x, GROUND - 370, 'NÉ!', '#9ff', 24);
+          floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'NÉ!', '#9ff', 24);
         }
       } else {
         K.chargeHit = true;
@@ -1401,7 +1696,21 @@
       p.y += p.vy * dt;
       p.life -= dt;
       if (p.owner === 'titan') {
-        burst(p.x, p.y, 1, '#8ff', 40, 0.25, 3, 0);
+        if (p.missile) {
+          p.home -= dt;
+          if (p.home <= 0 && K && !K.dying) {
+            const tx = K.x;
+            const ty = GROUND - 170 * K.def.scale + K.y;
+            const d = Math.hypot(tx - p.x, ty - p.y) || 1;
+            const sp = 980;
+            const k = Math.min(1, 6 * dt);
+            p.vx += ((tx - p.x) / d * sp - p.vx) * k;
+            p.vy += ((ty - p.y) / d * sp - p.vy) * k;
+          }
+          if (Math.random() < 0.7) burst(p.x, p.y, 1, pick(['#ffd36b', '#ff9b3d', '#b8c2cc']), 40, 0.35, 4, -30);
+        } else burst(p.x, p.y, 1, '#8ff', 40, 0.25, 3, 0);
+        // tên lửa vừa rời bệ chưa kích nổ: bay vồng lên trước rồi mới lao vào quái
+        if (p.missile && p.home > 0) continue;
         if (K && !K.dying && K.state !== 'emerge' && Math.abs(p.x - K.x) < K.half && p.y > GROUND - 270 * K.def.scale + K.y && p.y < GROUND) {
           p.life = 0;
           damageKaiju(p.dmg, p.kb, p.heavy, p.x, p.y, Math.sign(p.vx));
@@ -1409,7 +1718,7 @@
         }
       } else {
         if (Math.random() < 0.6) burst(p.x, p.y, 1, p.color, 60, 0.4, 4, 200);
-        if (Math.abs(p.x - T.x) < TITAN_HALF + 10 && p.y > GROUND - 330 && p.y < GROUND) {
+        if (Math.abs(p.x - T.x) < TITAN_HALF + 10 && p.y > GROUND - (330 + BODY_LIFT) * TITAN_SCALE && p.y < GROUND) {
           p.life = 0;
           hitTitan(p.dmg, 160, Math.sign(p.vx));
           burst(p.x, p.y, 16, p.color, 300, 0.6, 5);
@@ -1428,6 +1737,53 @@
       if (p.x < -100 || p.x > WORLD_W + 100) p.life = 0;
     }
     game.projectiles = game.projectiles.filter((p) => p.life > 0);
+  }
+
+  // TEMPEST · MƯA TÊN LỬA VỆ TINH: các tên lửa khóa chắc vào đầu quái, rơi nối tiếp; xong thì Titan hạ tay.
+  function updateStrikes(dt) {
+    const T = game.titan;
+    const K = game.kaiju;
+    for (const S of game.strikes) {
+      S.t += dt;
+      if (S.t < 0) continue;
+      if (S.lock && K && !K.dying) {
+        // vòng ngắm bám theo đầu quái → chắc chắn trúng
+        S.x = K.x + K.facing * 120 * K.def.scale;
+        S.y = GROUND - 230 * K.def.scale + K.y;
+      }
+      if (!S.warned && S.t >= STRIKE_DELAY - 0.4) {
+        S.warned = true;
+        sfx.satIncoming();
+      }
+      if (S.t >= STRIKE_DELAY && !S.done) {
+        S.done = true;
+        sfx.jetBoom();
+        shake(12);
+        fx.rings.push({ x: S.x, y: S.y, r: 0, max: 260, life: 0.5, color: '#ffd36b' });
+        burst(S.x, S.y, 36, pick(['#ffffff', '#ffd36b', '#ff9b3d']), 520, 0.7, 6, 300);
+        if (K && !K.dying) {
+          damageKaiju(S.dmg, S.kb, S.kb > 300, S.x, S.y, S.dir, true);
+          if (K.state !== 'dead' && !K.dying) {
+            K.state = 'stun';
+            K.t = 0;
+            K.stunDur = 0.5;
+            K.move = null;
+          }
+        }
+      }
+    }
+    game.strikes = game.strikes.filter((S) => S.t < STRIKE_DELAY + 0.3);
+    const B = game.barrage;
+    if (B) {
+      B.t += dt;
+      if (B.t >= B.dur) {
+        game.barrage = null;
+        if (T) {
+          T.beaming = false;
+          T.link = 45;
+        }
+      }
+    }
   }
 
   function updateBeam(dt) {
@@ -1534,6 +1890,8 @@
     game.titan = makeTitan();
     game.kaiju = makeKaiju(def);
     game.projectiles = [];
+    game.strikes = [];
+    game.barrage = null;
     game.beam = null;
     fx.particles.length = 0;
     fx.texts.length = 0;
@@ -1562,6 +1920,8 @@
     game.titan = makeTitan();
     game.buildings = makeCity(1);
     game.projectiles = [];
+    game.strikes = [];
+    game.barrage = null;
     game.beam = null;
   }
 
@@ -1590,6 +1950,7 @@
     updateKaiju(dt);
     updateProjectiles(dt);
     updateBeam(dt);
+    updateStrikes(dt);
     updateBuildings(dt);
     if (game.state !== 'fight') return;
     if (cityIntegrity() < LOSE_CITY) endWave('city');
@@ -1605,8 +1966,29 @@
     switch (game.state) {
       case 'title':
         game.cam = clamp(1100 + Math.sin(game.t * 0.08) * 900, 0, WORLD_W - W);
-        if (tapAny('Enter', 'NumpadEnter', 'Space')) newRun();
+        if (tapAny('Enter', 'NumpadEnter', 'Space')) {
+          game.state = 'select';
+          game.stateT = 0;
+          game.pick = game.titanIdx;
+          sfx.buy();
+        }
         return;
+      case 'select': {
+        game.cam = clamp(1100 + Math.sin(game.t * 0.08) * 900, 0, WORLD_W - W);
+        const d = (tapAny('KeyD', 'ArrowRight') ? 1 : 0) - (tapAny('KeyA', 'ArrowLeft') ? 1 : 0);
+        if (d) {
+          game.pick = (game.pick + d + TITANS.length) % TITANS.length;
+          sfx.dash();
+        }
+        if (tapAny('Escape')) {
+          game.state = 'title';
+          game.stateT = 0;
+        } else if (game.stateT > 0.2 && tapAny('Enter', 'NumpadEnter', 'Space')) {
+          game.titanIdx = game.pick;
+          newRun();
+        }
+        return;
+      }
       case 'fight':
         if (tapAny('KeyP', 'Escape')) {
           game.state = 'paused';
@@ -1997,14 +2379,41 @@
     const breathe = Math.sin(game.t * 2 + (side === 'L' ? 0 : 1.2)) * 3;
     const rest = side === 'L' ? { x: -64, y: -166 + breathe } : { x: 76, y: -160 + breathe };
     if (T.celebrate) return celebrateArm(T, side);
-    if (T.beaming) return side === 'L' ? { x: 30, y: -250 } : { x: 110, y: -236 };
-    if (side === 'R' && T.charge) return { x: 200, y: -256, charging: true };
+    if (T.def.special === 'leap' && (T.leap || (T.arms.R && T.arms.R.name === 'jet'))) return leapArm(T, side);
+    if (T.beaming) {
+      // TEMPEST giơ tay phải lên trời gọi vệ tinh; VANGUARD dang tay để lộ lò phản ứng
+      if (T.def.ult === 'orbital') return side === 'L' ? { x: 30, y: -250 } : { x: 70, y: -450 };
+      return side === 'L' ? { x: -120, y: -230 } : { x: -10, y: -150 };
+    }
+    if (side === 'R' && T.charge) return T.def.missiles ? { x: 70, y: -196 } : { x: 200, y: -256, charging: true };
     if (!a) {
       if (T.guard) return side === 'L' ? { x: 46, y: -318 } : { x: 92, y: -278 };
       if (T.stagger > 0) return side === 'L' ? { x: -96, y: -210 } : { x: 30, y: -196 };
       return rest;
     }
     const blade = a.name === 'blade';
+    const wb = blade && T.def.wristBlades;
+    const mis = a.name === 'cannon' && T.def.missiles;
+    if (wb || mis) {
+      // TEMPEST: lưỡi kép chém ngang từ trên vai xuống; phóng tên lửa thì tay hạ xuống mở bệ ngực
+      const back2 = mis ? { x: 70, y: -196 } : { x: 60, y: -340 };
+      const reach2 = mis ? { x: 80, y: -200 } : { x: 215, y: -236 };
+      const w2 = a.windup;
+      const act2 = a.m.active;
+      let q;
+      if (a.t < w2) q = { x: lerp(rest.x, back2.x, easeOut(a.t / w2)), y: lerp(rest.y, back2.y, easeOut(a.t / w2)) };
+      else if (a.t < w2 + act2) {
+        const k = easeOut(clamp((a.t - w2) / act2, 0, 1));
+        q = { x: lerp(back2.x, reach2.x, k), y: lerp(back2.y, reach2.y, k) };
+      } else {
+        const k = easeInOut(clamp((a.t - w2 - act2) / a.m.recover, 0, 1));
+        q = { x: lerp(reach2.x, rest.x, k), y: lerp(reach2.y, rest.y, k) };
+      }
+      q.wrist = wb;
+      q.a = a;
+      q.phase = a.t < w2 ? 'windup' : a.t < w2 + act2 ? 'active' : 'recover';
+      return q;
+    }
     const back = blade ? { x: 30, y: -372 } : a.name === 'cannon' ? { x: 196, y: -256 } : a.name === 'jet' ? { x: -40, y: -232 } : side === 'L' ? { x: -96, y: -252 } : { x: 6, y: -250 };
     const reach = blade ? { x: 190, y: -200 } : a.name === 'cannon' ? { x: 200, y: -256 } : a.name === 'jet' ? { x: 232, y: -258 } : { x: a.m.range * 0.92, y: -254 };
     const w = a.windup;
@@ -2092,7 +2501,29 @@
     return { x: spread.x, y: spread.y + shakeArm };
   }
 
+  function leapArm(T, side) {
+    const L = T.leap;
+    const rest = side === 'L' ? { x: -64, y: -166 } : { x: 76, y: -160 };
+    const mix = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k) });
+    const low = side === 'L' ? { x: -40, y: -150 } : { x: 30, y: -150 };
+    const up = side === 'L' ? { x: 20, y: -420 } : { x: 60, y: -424 };
+    const smash = side === 'L' ? { x: 150, y: -240 } : { x: 170, y: -230 };
+    if (!L) {
+      const a = T.arms.R;
+      return mix(rest, low, easeOut(clamp(a.t / a.windup, 0, 1)));
+    }
+    if (L.t < LEAP.up) return mix(low, up, easeOut(L.t / LEAP.up));
+    if (L.t < LEAP.up + LEAP.smash) return mix(up, smash, easeOut((L.t - LEAP.up) / LEAP.smash));
+    return mix(smash, rest, easeInOut(clamp((L.t - LEAP.up - LEAP.smash) / LEAP.fall, 0, 1)));
+  }
+
   function titanLean(T) {
+    if (T.leap) {
+      const t = T.leap.t;
+      if (t < LEAP.up) return -0.08;
+      if (t < LEAP.up + LEAP.smash) return 0.3;
+      return 0.3 * (1 - clamp((t - LEAP.up - LEAP.smash) / LEAP.fall, 0, 1));
+    }
     if (T.celebrate) {
       const ph = celebratePhase(T.celebrate);
       return ph.name === 'crouch' ? 0.1 * ph.k : ph.name === 'pose' ? -0.1 : 0;
@@ -2115,43 +2546,52 @@
     const p = armPose(T, side);
     if (p.charging) p.ch = T.charge;
     const k = ik(sx, sy, p.x, p.y, 82, 88, 1);
-    // bắp tay
+    // bắp tay: khung dày + hai lớp giáp + piston phía trong
     seg(sx, sy, k.jx, k.jy, (len) => {
-      rr(-4, -13, len + 8, 26, 10);
+      rr(-6, -18, len + 10, 36, 12);
       ctx.fillStyle = P.frame;
       ctx.fill();
-      poly([[12, -16], [len - 16, -14], [len - 10, 10], [16, 14]], vGrad(-16, 14, P.hi, P.armor, P.lo), P.line);
       ctx.fillStyle = P.frameHi;
-      ctx.fillRect(len * 0.3, -4, len * 0.4, 3);
+      ctx.fillRect(len * 0.2, 10, len * 0.55, 6);
+      poly([[8, -22], [len * 0.55, -24], [len * 0.6, 4], [10, 8]], vGrad(-24, 8, P.hi, P.armor, P.lo), P.line);
+      poly([[len * 0.5, -20], [len - 8, -18], [len - 4, 6], [len * 0.55, 6]], vGrad(-20, 6, P.hi, P.armor, P.lo), P.line);
+      ctx.strokeStyle = P.accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(12, -16);
+      ctx.lineTo(len * 0.5, -18);
+      ctx.stroke();
     });
     if (p.jet) drawElbowJet(p, k, lc);
-    // khuỷu tay
-    ctx.fillStyle = P.frame;
-    ellipse(k.jx, k.jy, 15, 15);
-    ctx.fill();
-    ctx.fillStyle = P.frameHi;
-    ellipse(k.jx, k.jy, 7, 7);
-    ctx.fill();
-    // cẳng tay (giáp găng lớn) + nắm đấm
+    // khớp khuỷu tròn lớn
+    drawJointDisc(k.jx, k.jy, 19, P);
+    // cẳng tay: găng giáp to bản, loe về cổ tay, có khe tản nhiệt phát sáng + nắm đấm khối
     seg(k.jx, k.jy, k.ex, k.ey, (len) => {
-      poly([[2, -17], [len - 8, -23], [len + 4, -16], [len + 4, 17], [len - 8, 23], [2, 16]], vGrad(-23, 23, P.hi, P.armor, P.lo), P.line);
-      poly([[len * 0.28, -20], [len * 0.4, -21], [len * 0.4, 21], [len * 0.28, 19]], P.accent);
+      rr(-4, -18, len + 6, 36, 10);
+      ctx.fillStyle = P.frame;
+      ctx.fill();
+      poly([[4, -22], [len * 0.5, -28], [len - 4, -30], [len + 6, -22], [len + 6, 22], [len - 4, 30], [len * 0.5, 26], [4, 20]], vGrad(-30, 30, P.hi, P.armor, P.lo), P.line);
+      // tấm giáp ốp mặt ngoài
+      poly([[len * 0.12, -16], [len * 0.45, -22], [len * 0.45, 2], [len * 0.12, 4]], vGrad(-22, 4, P.hi, P.armor, P.lo), P.line);
+      poly([[len * 0.48, -24], [len * 0.56, -25], [len * 0.56, 25], [len * 0.48, 23]], P.accent);
       ctx.save();
       ctx.globalAlpha *= 0.55 + 0.45 * Math.sin(game.t * 6);
       ctx.fillStyle = lc;
-      for (let i = 0; i < 3; i++) ctx.fillRect(len * 0.55 + i * 9, -7, 4, 14);
+      for (let i = 0; i < 3; i++) ctx.fillRect(len * 0.64 + i * 9, -10, 4, 20);
       ctx.restore();
-      rr(len - 2, -19, 40, 38, 8);
+      // nắm đấm
+      rr(len - 2, -22, 44, 44, 9);
       ctx.fillStyle = P.frame;
       ctx.fill();
-      rr(len + 14, -21, 26, 42, 7);
-      ctx.fillStyle = P.armor;
+      rr(len + 14, -25, 30, 50, 8);
+      ctx.fillStyle = vGrad(-25, 25, P.hi, P.armor, P.lo);
       ctx.fill();
       ctx.strokeStyle = P.line;
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.fillStyle = P.lo;
-      for (let i = 0; i < 3; i++) ctx.fillRect(len + 18, -14 + i * 11, 18, 3);
+      for (let i = 0; i < 4; i++) ctx.fillRect(len + 18, -18 + i * 11, 22, 3);
+      if (T.def.wristBlades) drawWristBlade(p, len, P);
       if (p.blade) drawChainSword(p, len, lc, P);
       if (p.cannon || p.charging) drawArmCannon(p, len, lc, P, T);
     });
@@ -2225,9 +2665,56 @@
   }
 
   // Vệt chém sáng (vẽ trong hệ toạ độ thân Titan, quanh vai trước).
+  // TEMPEST: lưỡi kim loại gập dọc mặt ngoài cẳng tay; khi chém thì bật ra phía trước nắm đấm.
+  function drawWristBlade(p, len, P) {
+    let ext = 0;
+    if (p.wrist && p.a) {
+      const a = p.a;
+      const w = a.windup;
+      if (a.t < w) ext = a.t / w;
+      else if (a.t < w + a.m.active + a.m.recover * 0.5) ext = 1;
+      else ext = 1 - clamp((a.t - w - a.m.active - a.m.recover * 0.5) / (a.m.recover * 0.5), 0, 1);
+    }
+    ext = easeOut(ext);
+    const base = len * 0.2;
+    const L = len * 0.85 + 95 * ext;
+    const yOff = -30 + 16 * ext; // bật từ mép giáp ra thẳng trục cẳng tay
+    ctx.save();
+    // chân lưỡi
+    rr(base - 4, yOff - 4, 26, 10, 3);
+    ctx.fillStyle = P.frame;
+    ctx.fill();
+    // lưỡi: sống dày, lưỡi vát, mũi nhọn
+    poly([[base, yOff - 3], [base + L - 26, yOff - 7], [base + L, yOff + 1], [base + L - 26, yOff + 6], [base, yOff + 5]], vGrad(yOff - 7, yOff + 6, '#f4f7fa', '#b9c3cd', '#6b7682'), P.line);
+    ctx.strokeStyle = ext > 0.5 ? 'rgba(160,255,215,0.9)' : 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(base + 6, yOff - 3);
+    ctx.lineTo(base + L - 6, yOff - 1);
+    ctx.stroke();
+    ctx.fillStyle = P.accent;
+    ctx.fillRect(base + 4, yOff - 1, 10, 3);
+    ctx.restore();
+  }
+
   function drawSlashTrail(T, sx, sy) {
     const a = T.arms.R;
     if (!a || a.name !== 'blade') return;
+    if (T.def.wristBlades) {
+      const t = a.t - a.windup;
+      if (t < 0 || t > a.m.active + 0.08) return;
+      const k = clamp(t / (a.m.active + 0.08), 0, 1);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(120,255,200,${0.6 * (1 - k)})`;
+      ctx.lineWidth = 16 * (1 - k * 0.6);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(sx, sy + 20, 250, -1.1, 0.35);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
     const w = a.windup;
     const t = a.t - w;
     if (t < 0 || t > a.m.active + 0.1) return;
@@ -2325,36 +2812,300 @@
     ctx.restore();
   }
 
+  // Khớp tròn cơ khí (gối, cổ chân): vòng khung tối, đĩa giáp, trục giữa.
+  function drawJointDisc(x, y, r, P) {
+    ellipse(x, y, r, r);
+    ctx.fillStyle = P.frame;
+    ctx.fill();
+    ellipse(x, y, r * 0.72, r * 0.72);
+    ctx.fillStyle = vGrad(y - r, y + r, P.frameHi, P.lo, P.frame);
+    ctx.fill();
+    ctx.strokeStyle = P.line;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ellipse(x, y, r * 0.3, r * 0.3);
+    ctx.fillStyle = P.hi;
+    ctx.fill();
+  }
+
+  // Chân hạng nặng: đùi khối, khớp gối tròn lớn, ống chân giáp nhiều lớp có khe tản nhiệt,
+  // khớp cổ chân tròn và bàn chân to bè.
   function drawTitanLeg(hx, hy, fx, fy, P, lift) {
-    const k = ik(hx, hy, fx, fy - 22, 76, 84, -1);
-    // đùi
+    // Tổng chiều dài chân ≈ khoảng cách hông–cổ chân khi đứng → chân gần như thẳng;
+    // chỉ gập gối khi thủ, nhún hoặc nhấc chân bước.
+    const k = ik(hx, hy, fx, fy - 26, 94, 100, -1);
+    const armorG = (a, b) => vGrad(a, b, P.hi, P.armor, P.lo);
+    // đùi: khung + piston thủy lực phía sau + giáp trước
     seg(hx, hy, k.jx, k.jy, (len) => {
-      rr(-6, -16, len + 10, 32, 12);
+      ctx.scale(1, 1.35); // đùi dày
+      rr(-10, -20, len + 14, 40, 14);
       ctx.fillStyle = P.frame;
       ctx.fill();
-      poly([[8, -20], [len - 10, -18], [len - 6, 4], [10, 6]], vGrad(-20, 6, P.hi, P.armor, P.lo), P.line);
+      // piston (mặt sau đùi)
+      ctx.fillStyle = P.frameHi;
+      ctx.fillRect(len * 0.15, 12, len * 0.6, 8);
+      ctx.fillStyle = P.lo;
+      ctx.fillRect(len * 0.55, 14, len * 0.35, 4);
+      // giáp đùi trước, hai lớp chồng
+      poly([[0, -26], [len * 0.55, -28], [len * 0.62, -6], [4, 2]], armorG(-28, 2), P.line);
+      poly([[len * 0.5, -25], [len - 2, -22], [len + 2, -2], [len * 0.56, -4]], armorG(-25, -2), P.line);
+      ctx.strokeStyle = P.accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(8, -18);
+      ctx.lineTo(len * 0.5, -20);
+      ctx.stroke();
     });
-    // ống chân (giáp lớn)
+    // ống chân: khung + giáp lớn loe dần về cổ chân
     seg(k.jx, k.jy, k.ex, k.ey, (len) => {
-      poly([[-4, -22], [len - 4, -16], [len + 4, -14], [len + 4, 16], [len - 4, 18], [-4, 24]], vGrad(-22, 24, P.hi, P.armor, P.lo), P.line);
-      poly([[len * 0.25, -21], [len * 0.62, -18], [len * 0.62, -10], [len * 0.25, -12]], P.accent);
+      ctx.scale(1, 1.3); // ống chân dày
+      rr(-6, -16, len + 8, 32, 10);
       ctx.fillStyle = P.frame;
-      ctx.fillRect(len * 0.7, -8, len * 0.25, 16);
+      ctx.fill();
+      poly([[2, -24], [len * 0.45, -28], [len - 2, -30], [len + 6, -20], [len + 4, 10], [len * 0.5, 6], [4, 4]], armorG(-30, 10), P.line);
+      // tấm giáp phụ phía sau bắp chân
+      poly([[len * 0.15, 8], [len * 0.7, 10], [len * 0.62, 24], [len * 0.2, 20]], armorG(8, 24), P.line);
+      // khe tản nhiệt
+      ctx.strokeStyle = P.frame;
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 4; i++) {
+        const x = len * (0.5 + i * 0.1);
+        ctx.beginPath();
+        ctx.moveTo(x, -22);
+        ctx.lineTo(x + 6, -8);
+        ctx.stroke();
+      }
+      // chỉ màu dọc mép giáp
+      ctx.strokeStyle = P.accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(6, -20);
+      ctx.lineTo(len * 0.42, -24);
+      ctx.stroke();
     });
-    // giáp gối
+    // khớp gối tròn lớn + mảnh giáp chụp phía trên
+    drawJointDisc(k.jx, k.jy, 23, P);
     ctx.save();
     ctx.translate(k.jx, k.jy);
-    poly([[-6, -20], [18, -16], [26, 2], [16, 20], [-8, 16], [-14, -2]], vGrad(-20, 20, P.hi, P.armor, P.lo), P.line);
-    ctx.fillStyle = P.accent;
-    ctx.fillRect(2, -4, 14, 6);
+    ctx.scale(1.25, 1.25);
+    poly([[4, -26], [22, -20], [28, -4], [18, 0], [8, -12]], armorG(-26, 0), P.line);
     ctx.restore();
     // bàn chân
     ctx.save();
     ctx.translate(k.ex, k.ey);
     ctx.rotate(-lift * 0.25);
-    poly([[-30, 22], [46, 22], [40, 8], [16, -6], [-14, -8], [-26, 4]], P.frame, P.line);
-    poly([[-18, 4], [14, -4], [36, 10], [-14, 12]], vGrad(-6, 14, P.hi, P.armor, P.lo));
+    ctx.translate(0, 26);
+    ctx.scale(1.2, 1.2);
+    ctx.translate(0, -26);
+    poly([[-34, 26], [52, 26], [50, 14], [30, 4], [8, -6], [-18, -6], [-32, 8]], P.frame, P.line);
+    // giáp mu bàn chân
+    poly([[-10, -4], [16, -8], [40, 8], [36, 16], [-6, 14]], armorG(-8, 16), P.line);
+    // mũi chân + gót
+    poly([[34, 12], [54, 16], [54, 26], [32, 26]], P.lo, P.line);
+    poly([[-36, 14], [-20, 10], [-20, 26], [-38, 26]], P.lo, P.line);
+    ctx.fillStyle = P.accent;
+    ctx.fillRect(4, 16, 22, 3);
     ctx.restore();
+    // khớp cổ chân tròn (vẽ sau cùng để nằm trên bàn chân)
+    drawJointDisc(k.ex, k.ey, 16, P);
+  }
+
+  // TEMPEST: đầu cảm biến — khối đầu thấp, vây chắn hai bên, một mắt tròn lớn có ống kính xoay.
+  function drawSensorHead(hy, F, lc) {
+    ctx.save();
+    ctx.translate(-8, 0);
+    ctx.scale(1.15, 1.15);
+    ctx.translate(0, -hy * (1 - 1 / 1.15));
+    // khối đầu
+    poly([[-18, hy - 12], [-6, hy - 26], [30, hy - 28], [46, hy - 14], [44, hy + 8], [24, hy + 14], [-14, hy + 12]], vGrad(hy - 28, hy + 14, F.hi, F.armor, F.lo), F.line);
+    // vây chắn sau đầu + ăng-ten ngắn
+    poly([[-18, hy - 12], [-36, hy - 8], [-30, hy + 8], [-14, hy + 10]], F.lo, F.line);
+    ctx.strokeStyle = F.frameHi;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(4, hy - 26);
+    ctx.lineTo(-6, hy - 44);
+    ctx.stroke();
+    ctx.fillStyle = F.accent;
+    ellipse(-6, hy - 45, 3, 3);
+    ctx.fill();
+    // mắt tròn
+    ellipse(28, hy - 6, 13, 13);
+    ctx.fillStyle = F.frame;
+    ctx.fill();
+    ctx.save();
+    ctx.shadowColor = lc;
+    ctx.shadowBlur = 22;
+    ellipse(30, hy - 6, 8, 8);
+    ctx.fillStyle = lc;
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(30, hy - 6);
+    ctx.rotate(game.t * 3);
+    ctx.strokeStyle = 'rgba(10,30,30,0.6)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      ctx.rotate(PI2 / 3);
+      ctx.beginPath();
+      ctx.moveTo(2, 0);
+      ctx.lineTo(7, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = '#ffffff';
+    ellipse(32, hy - 8, 2, 2);
+    ctx.fill();
+    // hàm dưới
+    ctx.fillStyle = F.frame;
+    ctx.fillRect(10, hy + 8, 28, 3);
+    ctx.restore();
+  }
+
+  // Độ mở nắp bệ phóng tên lửa (0 → 1) theo trạng thái nạp/phóng.
+  function launcherOpen(T) {
+    const a = T.arms.R;
+    if (T.charge) return clamp(T.charge.t / 0.15, 0, 1);
+    if (a && a.name === 'cannon') return a.t < a.windup + a.m.active ? 1 : 1 - clamp((a.t - a.windup - a.m.active) / a.m.recover, 0, 1);
+    return 0;
+  }
+
+  // Tâm bệ phóng trên ngực (toạ độ nội bộ của Titan, trước khi nâng thân).
+  const LAUNCHER = { x: 5, y: -264 };
+
+  // TEMPEST: ngực là bệ phóng 6 ống (3×2). Hai nắp giáp trượt lên/xuống để lộ đầu đạn.
+  function drawChestLauncher(T, by, F, lc) {
+    const open = easeOut(launcherOpen(T));
+    const cx = LAUNCHER.x;
+    const cy = LAUNCHER.y + by;
+    const w = 66;
+    const h = 50;
+    ctx.save();
+    ctx.translate(cx, cy);
+    // khung bệ
+    poly([[-w / 2 - 6, -h / 2 - 4], [w / 2 + 8, -h / 2 - 6], [w / 2 + 12, h / 2 + 2], [-w / 2 - 4, h / 2 + 6]], F.frameHi, F.line, 2);
+    rr(-w / 2, -h / 2, w, h, 5);
+    ctx.fillStyle = '#0b0d10';
+    ctx.fill();
+    // 6 ống phóng + đầu đạn
+    const ready = T.missileCD > 0 ? Math.floor(6 * (1 - T.missileCD / MISSILE_RELOAD)) : 6;
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < 3; c++) {
+        const loaded = r * 3 + c < ready;
+        const x = -w / 2 + 12 + c * 21;
+        const y = -h / 2 + 13 + r * 24;
+        ellipse(x, y, 8.5, 8.5);
+        ctx.fillStyle = F.frame;
+        ctx.fill();
+        ctx.strokeStyle = F.frameHi;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        if (loaded) {
+          ellipse(x, y, 5, 5);
+          ctx.fillStyle = '#d9dee4';
+          ctx.fill();
+          ellipse(x, y, 2.4, 2.4);
+          ctx.fillStyle = open > 0.5 ? '#ffd36b' : F.accent;
+          ctx.fill();
+        }
+      }
+    }
+    // hai nắp giáp trượt ra trên/dưới
+    const slide = open * (h / 2 + 2);
+    ctx.save();
+    rr(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4, 5);
+    ctx.clip();
+    poly([[-w / 2 - 2, -h / 2 - 2 - slide], [w / 2 + 2, -h / 2 - 2 - slide], [w / 2 + 2, -slide], [-w / 2 - 2, -slide]], vGrad(-h / 2, 0, F.hi, F.armor, F.lo), F.line);
+    poly([[-w / 2 - 2, slide], [w / 2 + 2, slide], [w / 2 + 2, h / 2 + 2 + slide], [-w / 2 - 2, h / 2 + 2 + slide]], vGrad(0, h / 2, F.armor, F.lo, F.lo), F.line);
+    ctx.fillStyle = F.accent;
+    ctx.fillRect(-w / 2 + 6, -6 - slide, w - 12, 3);
+    ctx.fillRect(-w / 2 + 6, 3 + slide, w - 12, 3);
+    ctx.restore();
+    // đèn trạng thái hai bên (theo màu Link)
+    ctx.save();
+    ctx.shadowColor = lc;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = lc;
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(-w / 2 - 12, -h / 2 + 6 + i * 14, 4, 8);
+      ctx.fillRect(w / 2 + 10, -h / 2 + 6 + i * 14, 4, 8);
+    }
+    ctx.restore();
+    // khói/chớp lửa khi vừa phóng
+    if (T.muzzle > 0 && T.def.missiles) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(255,210,120,${T.muzzle / 0.12 * 0.8})`;
+      ellipse(0, 0, w * 0.7, h * 0.7);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // 0 → 1: lò phản ứng sáng rực khi VANGUARD tung chiêu đặc biệt
+  function reactorBoost(T) {
+    return T.beaming && T.def.ult === 'reactor' ? 1 : 0;
+  }
+
+  // Tên lửa vệ tinh: vòng ngắm bám mục tiêu + tia dẫn đường từ trời + tên lửa lao xuống.
+  function drawStrikes() {
+    for (const S of game.strikes) {
+      if (S.done || S.t < 0) continue;
+      const x = S.x - game.cam;
+      const k = clamp(S.t / STRIKE_DELAY, 0, 1);
+      const col = '#5dffb0';
+      ctx.save();
+      // tia dẫn đường mờ từ trên trời
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(93,255,176,${0.15 + 0.25 * k})`;
+      ctx.lineWidth = 2 + 4 * k;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, S.y);
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      // vòng ngắm co dần và xoay
+      const r = 70 - 40 * k;
+      ctx.save();
+      ctx.translate(x, S.y);
+      ctx.rotate(game.t * 2);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3;
+      ellipse(0, 0, r, r);
+      ctx.stroke();
+      for (let i = 0; i < 4; i++) {
+        ctx.rotate(PI2 / 4);
+        ctx.beginPath();
+        ctx.moveTo(r - 12, 0);
+        ctx.lineTo(r + 14, 0);
+        ctx.stroke();
+      }
+      ctx.fillStyle = col;
+      ellipse(0, 0, 4, 4);
+      ctx.fill();
+      ctx.restore();
+      // tên lửa lao xuống trong 0,35s cuối
+      const fall = clamp((S.t - (STRIKE_DELAY - 0.35)) / 0.35, 0, 1);
+      if (fall > 0) {
+        const my = lerp(-80, S.y, fall * fall);
+        ctx.globalCompositeOperation = 'lighter';
+        const tg = ctx.createLinearGradient(x, my - 220, x, my);
+        tg.addColorStop(0, 'rgba(255,120,30,0)');
+        tg.addColorStop(1, 'rgba(255,230,160,0.95)');
+        ctx.fillStyle = tg;
+        ctx.fillRect(x - 7, my - 220, 14, 220);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#d9dee4';
+        rr(x - 8, my - 40, 16, 44, 6);
+        ctx.fill();
+        ctx.fillStyle = '#5dffb0';
+        ctx.fillRect(x - 8, my - 6, 16, 6);
+        poly([[x - 8, my - 30], [x - 18, my - 44], [x - 8, my - 40]], '#8a94a0');
+        poly([[x + 8, my - 30], [x + 18, my - 44], [x + 8, my - 40]], '#8a94a0');
+      }
+      ctx.restore();
+    }
   }
 
   function drawTitan(T) {
@@ -2362,26 +3113,42 @@
     const ja = T.arms.R;
     if (ja && ja.name === 'jet' && ja.t < ja.windup) {
       const K = game.kaiju;
-      const inRange = K && !K.dying && (K.x - T.x) * T.facing > -40 && (K.x - T.x) * T.facing < JET_REACH + K.half;
+      const inRange = specialCanHit(K);
       const x0 = T.x - game.cam;
-      const len = JET_REACH * T.facing;
+      // vạch báo kéo tới đúng chỗ Titan sẽ đứng sau đòn (sát quái)
+      const len = inRange ? specialStandX(T, K) - T.x : (K ? Math.sign(K.x - T.x) || T.facing : T.facing) * SPECIAL_RANGE;
       const k = ja.t / ja.windup;
       ctx.fillStyle = inRange ? `rgba(127,246,255,${0.15 + 0.25 * k})` : `rgba(255,155,61,${0.12 + 0.2 * k})`;
       ctx.fillRect(Math.min(x0, x0 + len), GROUND - 5, Math.abs(len), 10);
-      ctx.fillRect(x0 + len - (T.facing > 0 ? 4 : 0), GROUND - 22, 4, 34);
+      ctx.fillRect(x0 + len - (len > 0 ? 4 : 0), GROUND - 22, 4, 34);
     }
     const flash = T.hitFlash > 0;
     const lc = linkColor(T.link);
-    const F = flash ? MECH.flash : MECH.front;
-    const B = flash ? MECH.flash : MECH.back;
+    const F = flash ? MECH.flash : T.def.pal.front;
+    const B = flash ? MECH.flash : T.def.pal.back;
     // Chu kỳ bước đi: hai chân lệch pha, thân nhún theo nhịp bước.
     const ph = T.walkT * 6.5;
     const s1 = Math.sin(ph);
     const s2 = Math.sin(ph + Math.PI);
     const bob = T.moving ? -Math.abs(Math.cos(ph)) * 8 + 4 : Math.sin(game.t * 2) * 2.5;
-    const lift1 = T.moving ? Math.max(0, Math.cos(ph)) : 0;
-    const lift2 = T.moving ? Math.max(0, -Math.cos(ph)) : 0;
+    let lift1 = T.moving ? Math.max(0, Math.cos(ph)) : 0;
+    let lift2 = T.moving ? Math.max(0, -Math.cos(ph)) : 0;
     let crouch = T.guard ? 14 : T.stagger > 0 ? 10 : 0;
+    let flameK = null; // độ mạnh lửa thruster phụt xuống (null = tắt)
+    const ra = T.arms.R;
+    if (T.def.special === 'leap' && !T.leap && ra && ra.name === 'jet' && ra.t < ra.windup) {
+      const k = ra.t / ra.windup;
+      crouch = 26 * easeOut(k);
+      if (k > 0.5) flameK = 0.9 - (k - 0.5);
+    }
+    if (T.leap) {
+      if (T.airY > 6) {
+        lift1 = 0.8;
+        lift2 = 0.6;
+        crouch = 10;
+      }
+      if (T.leap.t < LEAP.up + LEAP.smash) flameK = T.leap.t < LEAP.up ? 0 : 0.5;
+    }
     let spin = 1;
     let spreadFeet = 0;
     let celPh = null;
@@ -2402,7 +3169,7 @@
 
     // tia lửa bắn ra khi giáp còn dưới 35%
     if (T.hp / T.maxHp < 0.35 && Math.random() < 0.08) {
-      burst(T.x + rand(-50, 50), GROUND - rand(180, 320), 4, pick(['#ffd36b', '#ff9b3d', '#ffffff']), 220, 0.4, 3, 700);
+      burst(T.x + rand(-50, 50), GROUND - (BODY_LIFT + rand(180, 320)) * TITAN_SCALE, 4, pick(['#ffd36b', '#ff9b3d', '#ffffff']), 220, 0.4, 3, 700);
     }
 
     // bụi khi bàn chân chạm đất
@@ -2418,28 +3185,29 @@
     ctx.save();
     ctx.translate(T.x - game.cam, GROUND);
     ctx.fillStyle = `rgba(0,0,0,${0.42 * (1 - T.airY / 300)})`;
-    ellipse(0, 2, 105 * (1 - T.airY / 400), 11);
+    ellipse(0, 2, 105 * TITAN_SCALE * (1 - T.airY / 400), 11);
     ctx.fill();
     ctx.translate(0, -T.airY);
     ctx.scale(T.facing * TITAN_SCALE * spin, TITAN_SCALE);
     if (T.inv > 0) ctx.globalAlpha = 0.6 + 0.3 * Math.sin(game.t * 60);
 
     // thruster phụt lửa xuống khi bật nhảy ăn mừng
-    if (celPh && celPh.name === 'jump' && celPh.k < 0.75) {
+    if (celPh && celPh.name === 'jump' && celPh.k < 0.75) flameK = celPh.k;
+    if (flameK != null) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 3; i++) {
         const fx0 = -78 + i * 9;
-        const l = rand(120, 200) * (1 - celPh.k * 0.8);
-        const g = ctx.createLinearGradient(0, -210, 0, -210 + l);
+        const l = rand(120, 200) * (1 - flameK * 0.8);
+        const g = ctx.createLinearGradient(0, -210 - BODY_LIFT, 0, -210 - BODY_LIFT + l);
         g.addColorStop(0, 'rgba(220,250,255,0.95)');
         g.addColorStop(0.4, 'rgba(120,210,255,0.7)');
         g.addColorStop(1, 'rgba(60,140,255,0)');
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.moveTo(fx0 - 7, -212);
-        ctx.lineTo(fx0, -212 + l);
-        ctx.lineTo(fx0 + 7, -212);
+        ctx.moveTo(fx0 - 7, -212 - BODY_LIFT);
+        ctx.lineTo(fx0, -212 - BODY_LIFT + l);
+        ctx.lineTo(fx0 + 7, -212 - BODY_LIFT);
         ctx.fill();
       }
       ctx.restore();
@@ -2457,9 +3225,9 @@
         g.addColorStop(1, 'rgba(60,140,255,0)');
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.moveTo(-60 + (dir > 0 ? -10 : 0), -290 + i * 30 + by);
-        ctx.lineTo(-60 + dir * l, -280 + i * 30 + by);
-        ctx.lineTo(-60 + (dir > 0 ? -10 : 0), -270 + i * 30 + by);
+        ctx.moveTo(-60 + (dir > 0 ? -10 : 0), -290 - BODY_LIFT + i * 30 + by);
+        ctx.lineTo(-60 + dir * l, -280 - BODY_LIFT + i * 30 + by);
+        ctx.lineTo(-60 + (dir > 0 ? -10 : 0), -270 - BODY_LIFT + i * 30 + by);
         ctx.fill();
       }
       ctx.restore();
@@ -2467,7 +3235,7 @@
 
     // Toàn thân xoay nhẹ quanh hông theo độ ngả người.
     const lean = titanLean(T);
-    const hip = -158 + by;
+    const hip = -158 - BODY_LIFT + by;
 
     // chân sau + tay sau (trong bóng tối)
     drawTitanLeg(-26, hip + 6, -34 - 44 * spreadFeet + s2 * (T.moving ? 24 : 0) - crouch * 0.5, -lift2 * 22, B, lift2);
@@ -2475,9 +3243,9 @@
     ctx.save();
     ctx.translate(0, hip);
     ctx.rotate(lean);
-    ctx.translate(0, -hip);
+    ctx.translate(0, -hip - BODY_LIFT);
     drawTitanArm(T, 'L', -60, -284 + by, B, lc);
-    drawPauldron(-62, -290 + by, B, true, T, by, -1);
+    drawPauldron(-62, -290 + by, B, !T.def.missiles, T, by, -1);
     ctx.restore();
 
     drawTitanLeg(26, hip + 6, 36 + 50 * spreadFeet + s1 * (T.moving ? 24 : 0) + crouch * 0.6, -lift1 * 22, F, lift1);
@@ -2492,7 +3260,7 @@
     ctx.save();
     ctx.translate(0, hip);
     ctx.rotate(lean);
-    ctx.translate(0, -hip);
+    ctx.translate(0, -hip - BODY_LIFT);
 
     // ba lô thruster
     poly([[-92, -306 + by], [-60, -318 + by], [-50, -214 + by], [-84, -206 + by]], F.frame, F.line);
@@ -2568,56 +3336,63 @@
     poly([[-44, -226 + by], [42, -228 + by], [32, -214 + by], [-38, -212 + by]], F.accent);
     poly([[-22, -298 + by], [30, -300 + by], [44, -262 + by], [32, -230 + by], [-20, -228 + by], [-34, -262 + by]], F.frame, F.line);
 
-    // lò phản ứng lục giác + cánh turbine xoay
-    const rx = 5;
-    const ry = -264 + by;
-    ctx.save();
-    ctx.translate(rx, ry);
-    const hex = (r) => {
-      const pts = [];
-      for (let i = 0; i < 6; i++) pts.push([Math.cos((i / 6) * PI2 + Math.PI / 6) * r, Math.sin((i / 6) * PI2 + Math.PI / 6) * r]);
-      return pts;
-    };
-    poly(hex(27), F.frameHi);
-    ctx.shadowColor = lc;
-    ctx.shadowBlur = 34;
-    poly(hex(21), lc);
-    ctx.shadowBlur = 0;
-    ctx.rotate(game.t * (T.link >= 100 ? 14 : 5));
-    ctx.strokeStyle = 'rgba(10,30,40,0.55)';
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 6; i++) {
-      ctx.rotate(PI2 / 6);
-      ctx.beginPath();
-      ctx.moveTo(4, 0);
-      ctx.quadraticCurveTo(12, 6, 18, 2);
-      ctx.stroke();
+    if (T.def.missiles) drawChestLauncher(T, by, F, lc);
+    else {
+      // lò phản ứng lục giác + cánh turbine xoay
+      const rx = 5;
+      const ry = -264 + by;
+      ctx.save();
+      ctx.translate(rx, ry);
+      const hex = (r) => {
+        const pts = [];
+        for (let i = 0; i < 6; i++) pts.push([Math.cos((i / 6) * PI2 + Math.PI / 6) * r, Math.sin((i / 6) * PI2 + Math.PI / 6) * r]);
+        return pts;
+      };
+      poly(hex(27), F.frameHi);
+      ctx.shadowColor = lc;
+      ctx.shadowBlur = 34 + 50 * reactorBoost(T);
+      poly(hex(21), reactorBoost(T) > 0.6 ? '#ffffff' : lc);
+      ctx.shadowBlur = 0;
+      ctx.rotate(game.t * (T.link >= 100 || reactorBoost(T) > 0 ? 14 + 16 * reactorBoost(T) : 5));
+      ctx.strokeStyle = 'rgba(10,30,40,0.55)';
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 6; i++) {
+        ctx.rotate(PI2 / 6);
+        ctx.beginPath();
+        ctx.moveTo(4, 0);
+        ctx.quadraticCurveTo(12, 6, 18, 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ffffff';
+      ellipse(0, 0, 6, 6);
+      ctx.fill();
+      ctx.restore();
     }
-    ctx.fillStyle = '#ffffff';
-    ellipse(0, 0, 6, 6);
-    ctx.fill();
-    ctx.restore();
 
-    // cổ + đầu (kính mắt một dải)
+
+    // cổ + đầu
     rr(-14, -334 + by, 32, 16, 4);
     ctx.fillStyle = F.frame;
     ctx.fill();
     const hy = -340 + by;
-    ctx.save();
-    ctx.translate(-12, 0);
-    ctx.scale(1.2, 1.2);
-    ctx.translate(0, -hy * (1 - 1 / 1.2));
-    poly([[-16, hy - 16], [18, hy - 26], [42, hy - 14], [48, hy + 4], [32, hy + 14], [-12, hy + 12]], vGrad(hy - 26, hy + 14, F.hi, F.armor, F.lo), F.line);
-    poly([[-16, hy - 16], [-40, hy - 30], [-8, hy - 22]], F.accent);
-    poly([[0, hy - 22], [20, hy - 36], [26, hy - 22]], F.lo, F.line);
-    ctx.save();
-    ctx.shadowColor = lc;
-    ctx.shadowBlur = 22;
-    poly([[10, hy - 8], [48, hy - 4], [46, hy + 4], [8, hy + 2]], lc);
-    ctx.restore();
-    ctx.fillStyle = F.frame;
-    ctx.fillRect(14, hy + 6, 26, 3);
-    ctx.restore();
+    if (T.def.head === 'sensor') drawSensorHead(hy, F, lc);
+    else {
+      ctx.save();
+      ctx.translate(-12, 0);
+      ctx.scale(1.2, 1.2);
+      ctx.translate(0, -hy * (1 - 1 / 1.2));
+      poly([[-16, hy - 16], [18, hy - 26], [42, hy - 14], [48, hy + 4], [32, hy + 14], [-12, hy + 12]], vGrad(hy - 26, hy + 14, F.hi, F.armor, F.lo), F.line);
+      poly([[-16, hy - 16], [-40, hy - 30], [-8, hy - 22]], F.accent);
+      poly([[0, hy - 22], [20, hy - 36], [26, hy - 22]], F.lo, F.line);
+      ctx.save();
+      ctx.shadowColor = lc;
+      ctx.shadowBlur = 22;
+      poly([[10, hy - 8], [48, hy - 4], [46, hy + 4], [8, hy + 2]], lc);
+      ctx.restore();
+      ctx.fillStyle = F.frame;
+      ctx.fillRect(14, hy + 6, 26, 3);
+      ctx.restore();
+    }
 
     // tay trước + giáp vai trước
     drawSlashTrail(T, 66, -280 + by);
@@ -3068,6 +3843,32 @@
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const p of game.projectiles) {
+      if (p.owner === 'titan' && p.missile) {
+        // tên lửa: thân thon, đầu sáng, lửa đuôi
+        const x = p.x - game.cam;
+        const ang = Math.atan2(p.vy, p.vx);
+        ctx.save();
+        ctx.translate(x, p.y);
+        ctx.rotate(ang);
+        const fl = 18 + Math.random() * 14;
+        const fg = ctx.createLinearGradient(-8, 0, -8 - fl, 0);
+        fg.addColorStop(0, 'rgba(255,240,180,0.95)');
+        fg.addColorStop(1, 'rgba(255,90,20,0)');
+        ctx.fillStyle = fg;
+        ctx.beginPath();
+        ctx.moveTo(-8, -4);
+        ctx.lineTo(-8 - fl, 0);
+        ctx.lineTo(-8, 4);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#d9dee4';
+        rr(-9, -3.5, 16, 7, 3);
+        ctx.fill();
+        ctx.fillStyle = '#5dffb0';
+        ctx.fillRect(4, -3.5, 4, 7);
+        ctx.restore();
+        continue;
+      }
       if (p.owner === 'titan') {
         // khối plasma: lõi trắng, quầng xanh, vệt đuôi
         const x = p.x - game.cam;
@@ -3111,8 +3912,9 @@
     if (!B) return;
     const T = game.titan;
     const k = Math.min(1, B.t / 0.15) * Math.min(1, (B.dur - B.t) / 0.25);
-    const x0 = T.x - game.cam + T.facing * 40;
-    const y0 = GROUND - 240;
+    // tia phóng ra từ lò phản ứng trên ngực
+    const x0 = T.x - game.cam + T.facing * 5 * TITAN_SCALE;
+    const y0 = GROUND - (264 + BODY_LIFT) * TITAN_SCALE - T.airY;
     const len = 1700 * T.facing;
     const wob = Math.sin(game.t * 60) * 6;
     ctx.save();
@@ -3125,7 +3927,7 @@
     ctx.fillRect(Math.min(x0, x0 + len), y0 - 9, Math.abs(len), 18);
     ctx.shadowColor = '#bff';
     ctx.shadowBlur = 50;
-    ellipse(x0, y0, 50 * k + wob, 50 * k + wob);
+    ellipse(x0, y0, Math.max(0, 50 * k + wob), Math.max(0, 50 * k + wob));
     ctx.fill();
     ctx.restore();
   }
@@ -3243,23 +4045,51 @@
     // Titan
     panel(20, 16, 380, 104);
     text('TITAN-FRAME', 36, 38, { size: 12, color: '#7f9bb8' });
-    text('EYERIM VANGUARD', 36, 60, { size: 20 });
+    text(T.def.name, 36, 60, { size: 20 });
     const hpf = T.hp / T.maxHp;
     bar(36, 70, 348, 14, hpf, hpf < 0.3 ? '#ff5e4d' : '#4ff0a0', T.ghost / T.maxHp);
     text(`${Math.ceil(T.hp)} / ${T.maxHp}`, 384, 98, { size: 11, align: 'right', color: '#a9bdd2' });
     bar(36, 92, 220, 8, T.energy / 100, '#5fb8ff');
     text(T.regenDelay > 0 ? 'NĂNG LƯỢNG · ĐANG CHỜ HỒI' : 'NĂNG LƯỢNG', 36, 114, { size: 10, color: T.regenDelay > 0 ? '#ff9b5e' : '#7f9bb8' });
 
-    // Thanh nạp pháo plasma phía trên Titan
-    if (T.charge) {
+    // Thanh nạp vũ khí L phía trên Titan
+    const barY = GROUND - (BODY_LIFT + 420) * TITAN_SCALE;
+    const sp = T.arms.R;
+    if (sp && sp.name === 'jet' && sp.t < sp.windup) {
+      const k = sp.t / sp.windup;
+      const x = T.x - game.cam - 70;
+      const col = T.def.pal.front.accent;
+      text(T.def.special === 'leap' ? 'TỤ CHIÊU · ĐẬP PHẢN LỰC' : 'TỤ CHIÊU · ĐẤM PHẢN LỰC', x + 70, barY - 8, { size: 13, align: 'center', color: '#ffffff', glow: col, blur: 8 });
+      bar(x, barY, 140, 10, k, col);
+      text('trúng đòn = mất chiêu', x + 70, barY + 24, { size: 11, align: 'center', color: '#ff9b5e' });
+    }
+    if (T.def.missiles && T.missileCD > 0 && !T.charge) {
+      const x = T.x - game.cam - 70;
+      text(`NẠP ĐẠN ${Math.floor(6 * (1 - T.missileCD / MISSILE_RELOAD))}/6`, x + 70, barY - 8, { size: 13, align: 'center', color: '#ffd36b', glow: '#ff9b3d', blur: 6 });
+      bar(x, barY, 140, 8, 1 - T.missileCD / MISSILE_RELOAD, '#ffd36b');
+    }
+    if (T.charge && T.def.missiles) {
+      const k = clamp(T.charge.t / MISSILE_CHARGE, 0, 1);
+      const x = T.x - game.cam - 70;
+      const ok = T.charge.full;
+      text(ok ? 'SẴN SÀNG — THẢ L ĐỂ PHÓNG' : `KHÓA MỤC TIÊU ${Math.floor(k * 100)}%`, x + 70, barY - 8, { size: 13, align: 'center', color: ok ? '#ffffff' : '#ffd36b', glow: ok ? '#5dffb0' : '#ff9b3d', blur: ok ? 14 : 6 });
+      bar(x, barY, 140, 10, k, ok && Math.sin(game.t * 30) > 0 ? '#ffffff' : ok ? '#5dffb0' : '#ffd36b');
+      if (!ok) text('thả sớm = hủy', x + 70, barY + 24, { size: 11, align: 'center', color: '#ff9b5e' });
+    } else if (T.charge) {
       const lv = T.charge.level;
       const x = T.x - game.cam - 70;
-      const y = GROUND - 430;
+      const y = barY;
       const full = lv >= 1;
-      text(full ? 'PLASMA TỐI ĐA — THẢ L' : 'NẠP PLASMA', x + 70, y - 8, { size: 13, align: 'center', color: full ? '#ffffff' : '#bff8ff', glow: '#4ff0ff', blur: full ? 14 : 6 });
+      const wname = T.def.missiles ? 'TÊN LỬA' : 'PLASMA';
+      text(full ? wname + ' TỐI ĐA — THẢ L' : 'NẠP ' + wname, x + 70, y - 8, { size: 13, align: 'center', color: full ? '#ffffff' : '#bff8ff', glow: '#4ff0ff', blur: full ? 14 : 6 });
       bar(x, y, 140, 10, lv, full && Math.sin(game.t * 30) > 0 ? '#ffffff' : '#7ff6ff');
       ctx.fillStyle = 'rgba(255,211,107,0.9)';
       ctx.fillRect(x + 140 * 0.6 - 1, y - 2, 2, 14);
+      // vạch tối thiểu: chưa qua vạch thì chưa bắn được
+      const lockK = CHARGE_LOCK / CHARGE_TIME;
+      ctx.fillStyle = T.charge.t < CHARGE_LOCK ? 'rgba(255,94,77,0.95)' : 'rgba(255,255,255,0.5)';
+      ctx.fillRect(x + 140 * lockK - 1, y - 2, 2, 14);
+      if (T.charge.t < CHARGE_LOCK) text('ĐANG KHÓA MỤC TIÊU…', x + 70, y + 24, { size: 11, align: 'center', color: '#ff9b5e' });
     }
 
     // Neural Link
@@ -3296,7 +4126,9 @@
       text(n.lbl, n.x, 59, { size: 13, align: 'center', color: on > 0.3 ? '#03101a' : '#cfe0f0' });
     }
     if (T.link >= 100 && !T.beaming) {
-      text('TIDEBREAKER SẴN SÀNG — ĐỒNG BỘ F + J', cx, 128, { size: 16, align: 'center', color: lc, glow: lc, alpha: 0.7 + 0.3 * Math.sin(game.t * 8) });
+      const hold = T.linkHold > 0 ? ` · ${T.linkHold.toFixed(1)}s` : '';
+      text(`${T.def.ultName} SẴN SÀNG — ĐỒNG BỘ F + J${hold}`, cx, 128, { size: 16, align: 'center', color: lc, glow: lc, alpha: 0.7 + 0.3 * Math.sin(game.t * 8) });
+      if (T.linkHold > 0) bar(cx - 140, 136, 280, 5, T.linkHold / LINK_HOLD, T.linkHold < 1.5 ? '#ff9b5e' : lc);
     } else if (T.link < 25) {
       text('LINK BẤT ỔN — TITAN CHẬM CHẠP', cx, 128, { size: 15, align: 'center', color: '#ff8a3d', alpha: 0.7 + 0.3 * Math.sin(game.t * 8) });
     }
@@ -3370,7 +4202,10 @@
     text('PHI CÔNG 1 · BÁN CẦU TRÁI', c1, y + 64, { size: 13, color: '#9fc1e0' });
     text('PHI CÔNG 2 · BÁN CẦU PHẢI', c2, y + 64, { size: 13, color: '#9fc1e0' });
     const l1 = [['A / D', 'di chuyển'], ['W', 'lướt né (20 năng lượng)'], ['S', 'giữ để đỡ đòn'], ['F', 'đấm trái']];
-    const l2 = [['J', 'đấm phải'], ['I', 'cú đấm phản lực (25 năng lượng)'], ['K', 'kiếm xích — đòn nặng, tầm xa'], ['L', 'giữ để nạp pháo plasma, thả để bắn']];
+    const def = game.titan ? game.titan.def : curDef();
+    const l2 = def.missiles
+      ? [['J', 'đấm phải'], ['I', 'đập phản lực: bay lên nện đầu quái (25 NL)'], ['K', 'lưỡi kép cổ tay — chém nhanh'], ['L', 'giữ đủ 2s rồi thả: phóng 6 tên lửa (thả sớm = hủy)']]
+      : [['J', 'đấm phải'], ['I', 'cú đấm phản lực (25 năng lượng)'], ['K', 'kiếm xích — đòn nặng, tầm xa'], ['L', 'giữ để nạp pháo plasma, thả để bắn']];
     l1.forEach((l, i) => {
       text(l[0], c1, y + 90 + i * 22, { size: 15, color: '#ffd36b' });
       text(l[1], c1 + 62, y + 90 + i * 22, { size: 15, weight: 500 });
@@ -3381,8 +4216,8 @@
     });
     const tips = [
       'ĐỒNG BỘ: hai phi công ra đòn gần như cùng lúc → sát thương ×2, Link tăng.',
-      'LINK 100%: đồng bộ thêm một lần nữa để tung TIDEBREAKER.',
-      'Đòn nặng (kiếm xích, pháo, đồng bộ) trúng lúc quái đang gồng (!) → PHẢN ĐÒN.',
+      `LINK 100%: giữ 5 giây — đồng bộ F + J trong lúc đó để tung ${def.ultName}.`,
+      'Đòn nặng (K, L nạp đầy, đồng bộ) trúng lúc quái đang gồng (!) → PHẢN ĐÒN.',
     ];
     tips.forEach((t, i) => text(t, c1, y + 190 + i * 20, { size: 13, weight: 500, color: '#cfe0f0' }));
     ctx.restore();
@@ -3402,7 +4237,98 @@
     drawHelp(1, 262);
     text(userTrack.ok ? `♪ Đang phát nhạc của bạn${userTrack.name ? ': ' + userTrack.name : ' (music/)'}` : 'Muốn dùng nhạc riêng? Kéo thả file nhạc vào cửa sổ, hoặc đặt vào music/theme.mp3', W / 2, 578, { size: 13, align: 'center', weight: 500, color: '#7f9bb8' });
     text('Chơi một mình: tay trái A S D W F, tay phải J K L', W / 2, 548, { size: 14, align: 'center', weight: 500, color: '#9fc1e0' });
-    if (Math.sin(game.t * 4) > -0.3) text('NHẤN ENTER ĐỂ XUẤT KÍCH', W / 2, 600, { size: 24, align: 'center', color: '#ffd36b', glow: '#ff9b3d' });
+    if (Math.sin(game.t * 4) > -0.3) text('NHẤN ENTER ĐỂ CHỌN TITAN', W / 2, 600, { size: 24, align: 'center', color: '#ffd36b', glow: '#ff9b3d' });
+  }
+
+  // Vẽ Titan làm avatar trong thẻ chọn: đặt chân tại (cx, gy), phóng to theo s.
+  const avatarTitans = {};
+  function drawTitanAvatar(def, cx, gy, s, active) {
+    const T = avatarTitans[def.id] || (avatarTitans[def.id] = makeTitan(def));
+    T.x = game.cam + cx;
+    T.facing = 1;
+    T.link = active ? 100 : 60;
+    ctx.save();
+    ctx.translate(cx, gy);
+    ctx.scale(s, s);
+    ctx.translate(-cx, -GROUND);
+    drawTitan(T);
+    ctx.restore();
+  }
+
+  function drawSelect() {
+    dim(0.62);
+    text('CHỌN TITAN', W / 2, 70, { size: 40, align: 'center', color: '#e8fbff', glow: '#4ff0ff', blur: 20, weight: 900 });
+    text('Hai phi công · một cỗ máy — chọn khung giáp cho chiến dịch', W / 2, 98, { size: 15, align: 'center', weight: 500, color: '#9fc1e0' });
+    const cw = 470;
+    const ch = 500;
+    const top = 124;
+    const STAT = [['armor', 'GIÁP'], ['speed', 'TỐC ĐỘ'], ['power', 'HỎA LỰC'], ['energy', 'NĂNG LƯỢNG']];
+    TITANS.forEach((def, i) => {
+      const sel = i === game.pick;
+      const x = W / 2 + (i - (TITANS.length - 1) / 2) * (cw + 30) - cw / 2;
+      const acc = def.pal.front.accent;
+      ctx.save();
+      ctx.globalAlpha = sel ? 1 : 0.55;
+      panel(x, top, cw, ch, sel ? acc : 'rgba(120,190,255,0.25)');
+      if (sel) {
+        ctx.save();
+        ctx.shadowColor = acc;
+        ctx.shadowBlur = 24;
+        ctx.strokeStyle = acc;
+        ctx.lineWidth = 2;
+        rr(x, top, cw, ch, 10);
+        ctx.stroke();
+        ctx.restore();
+      }
+      // khung avatar
+      const ax = x + 16;
+      const ay = top + 16;
+      const aw = 180;
+      const ah = 300;
+      const ag = ctx.createLinearGradient(0, ay, 0, ay + ah);
+      ag.addColorStop(0, 'rgba(30,50,80,0.6)');
+      ag.addColorStop(1, 'rgba(8,16,28,0.9)');
+      ctx.fillStyle = ag;
+      rr(ax, ay, aw, ah, 8);
+      ctx.fill();
+      ctx.save();
+      rr(ax, ay, aw, ah, 8);
+      ctx.clip();
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(ax, ay + ah - 26, aw, 26);
+      drawTitanAvatar(def, ax + aw / 2 - 4, ay + ah - 22, 0.92, sel);
+      ctx.restore();
+      // tên + vai trò
+      const tx = ax + aw + 18;
+      text(def.name.replace('EYERIM ', ''), tx, top + 50, { size: 30, weight: 900, color: '#ffffff', glow: sel ? acc : null, blur: 12 });
+      text('EYERIM · TITAN-FRAME', tx, top + 70, { size: 11, color: '#7f9bb8' });
+      wrapText(def.role, tx, top + 96, cw - aw - 50, 16, { size: 12, color: acc });
+      // chỉ số
+      STAT.forEach(([k, label], j) => {
+        const y = top + 140 + j * 40;
+        text(label, tx, y, { size: 12, color: '#9fc1e0' });
+        for (let n = 0; n < 5; n++) {
+          ctx.fillStyle = n < def.stats[k] ? acc : 'rgba(255,255,255,0.1)';
+          rr(tx + n * 47, y + 7, 42, 9, 3);
+          ctx.fill();
+        }
+      });
+      text(`HP ${def.hp} · TỐC ĐỘ ${def.speed}`, tx, top + 312, { size: 12, weight: 500, color: '#cfe0f0' });
+      // mô tả + vũ khí
+      wrapText(def.desc, x + 20, top + 346, cw - 40, 19, { size: 14, weight: 500, color: '#cfe0f0' });
+      text('VŨ KHÍ', x + 20, top + 404, { size: 12, color: '#7f9bb8' });
+      [...def.weapons, ['★', 'Link 100%: ' + def.ultName]].forEach(([key, w], j) => {
+        const y = top + 424 + j * 22;
+        rr(x + 20, y - 15, 22, 20, 4);
+        ctx.fillStyle = 'rgba(255,211,107,0.15)';
+        ctx.fill();
+        text(key, x + 31, y, { size: 13, align: 'center', color: '#ffd36b' });
+        text(w, x + 52, y, { size: 14, weight: 500 });
+      });
+      ctx.restore();
+      if (sel) text('▼', x + cw / 2, top - 6, { size: 16, align: 'center', color: acc, alpha: 0.6 + 0.4 * Math.sin(game.t * 6) });
+    });
+    text('A / D hoặc ← / → để chọn  ·  ENTER xuất kích  ·  ESC quay lại', W / 2, top + ch + 34, { size: 15, align: 'center', weight: 500, color: '#9fc1e0' });
   }
 
   function drawClear() {
@@ -3483,7 +4409,8 @@
     drawBuildings();
     drawGround();
     if (game.kaiju) drawKaiju(game.kaiju);
-    drawTitan(game.titan);
+    if (game.state !== 'select') drawTitan(game.titan);
+    drawStrikes();
     drawBeam();
     drawProjectiles();
     drawRings();
@@ -3502,6 +4429,9 @@
     switch (game.state) {
       case 'title':
         drawTitle();
+        break;
+      case 'select':
+        drawSelect();
         break;
       case 'fight':
         drawHUD();
@@ -3544,5 +4474,8 @@
   requestAnimationFrame(frame);
 
   // Móc kiểm thử (chỉ dùng khi chạy test tự động).
-  if (window.__TIDEBREAKER_TEST__) window.__TIDEBREAKER_TEST__.game = game;
+  if (window.__TIDEBREAKER_TEST__) {
+    window.__TIDEBREAKER_TEST__.game = game;
+    window.__TIDEBREAKER_TEST__.hitTitan = hitTitan;
+  }
 })();

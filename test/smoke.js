@@ -11,7 +11,11 @@ const ctx = new Proxy({}, {
   get(target, prop) {
     if (prop in target) return target[prop];
     if (prop === 'measureText') return (s) => ({ width: String(s).length * 8 });
-    if (/^create(Linear|Radial)Gradient$/.test(prop)) return () => gradient;
+    // Kiểm tra chặt như canvas thật: tham số sai sẽ ném lỗi và làm đứng game trên trình duyệt.
+    if (prop === 'createRadialGradient') return (x0, y0, r0, x1, y1, r1) => { if (!(r0 >= 0 && r1 >= 0) || ![x0, y0, x1, y1].every(Number.isFinite)) throw new Error('createRadialGradient: tham số sai ' + [x0, y0, r0, x1, y1, r1]); return gradient; };
+    if (prop === 'createLinearGradient') return (...a) => { if (!a.every(Number.isFinite)) throw new Error('createLinearGradient: tham số không hữu hạn ' + a); return gradient; };
+    if (prop === 'ellipse') return (x, y, rx, ry) => { if (!(rx >= 0 && ry >= 0)) throw new Error('ellipse: bán kính âm ' + [rx, ry]); };
+    if (prop === 'arc') return (x, y, r) => { if (!(r >= 0)) throw new Error('arc: bán kính âm ' + r); };
     return noop;
   },
   set(target, prop, value) { target[prop] = value; return true; },
@@ -78,7 +82,10 @@ function assert(cond, msg) {
 step(5);
 assert(game.state === 'title', 'bắt đầu ở màn hình chính');
 press('Enter'); step(1); release('Enter');
-assert(game.state === 'fight' && game.wave === 0, 'ENTER bắt đầu đợt 1');
+assert(game.state === 'select', 'ENTER mở màn hình chọn Titan');
+step(20);
+press('Enter'); step(1); release('Enter');
+assert(game.state === 'fight' && game.wave === 0 && game.titan.def.id === 'vanguard', 'chọn VANGUARD, bắt đầu đợt 1');
 
 // Bot đơn giản: tiến lại gần, đánh đồng bộ, đỡ khi quái gồng, lướt né khi bị lao húc.
 function botFrame(frame) {
@@ -97,8 +104,122 @@ function botFrame(frame) {
   if (frame % 47 === 0) { press('KeyK'); release('KeyK'); }
   if (frame % 200 === 100) { press('KeyI'); release('KeyI'); }
   if (frame % 150 === 0) press('KeyL');
-  if (frame % 150 === 70) release('KeyL');
+  if (frame % 150 === 135) release('KeyL');
 }
+
+// Chiêu I: đứng thật xa quái, bấm I → phải trúng chắc chắn và đứng lại trong tầm chém của vũ khí K.
+// Chiêu I: bấm 1 lần là tụ chiêu; bị trúng đòn trong lúc tụ thì mất chiêu (không hoàn năng lượng).
+function checkSpecialInterrupt(label) {
+  let f = 0;
+  while (f++ < 60 * 30) {
+    const T = game.titan;
+    const K = game.kaiju;
+    ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    step(1);
+  }
+  const T = game.titan;
+  const K = game.kaiju;
+  T.energy = 100;
+  T.x = K.x - K.half - 300;
+  const kx = K.x;
+  const hp0 = K.hp;
+  press('KeyI'); release('KeyI');
+  for (let i = 0; i < 30; i++) { K.cooldown = 5; K.x = kx; step(1); }
+  assert(T.arms.R && T.arms.R.name === 'jet' && !T.arms.R.fired, `${label}: bấm I một lần là bắt đầu tụ chiêu`);
+  testHook.hitTitan(5, 0, 1);
+  for (let i = 0; i < 120; i++) { K.cooldown = 5; K.x = kx; step(1); }
+  assert(game.kaiju.hp === hp0 && !T.leap && !T.slide && !T.arms.R, `${label}: trúng đòn khi đang tụ → mất chiêu`);
+  assert(T.energy < 100, `${label}: mất chiêu thì không hoàn năng lượng`);
+}
+
+// Chiêu đặc biệt (Link 100% + đồng bộ): VANGUARD = xung lò phản ứng, TEMPEST = mưa tên lửa vệ tinh.
+function checkUlt(label, kind) {
+  let f = 0;
+  while (f++ < 60 * 30) {
+    const T = game.titan;
+    const K = game.kaiju;
+    ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    step(1);
+  }
+  const T = game.titan;
+  const K = game.kaiju;
+  T.link = 100;
+  T.x = K.x - K.half - 200;
+  const hp0 = K.hp;
+  press('KeyF'); press('KeyJ'); step(1); release('KeyF'); release('KeyJ');
+  assert(T.beaming && T.def.ult === kind, `${label}: Link 100% + đồng bộ → tung chiêu đặc biệt (${T.def.ultName})`);
+  if (kind === 'orbital') assert(game.strikes.length === 6, `${label}: gọi 6 tên lửa vệ tinh`);
+  f = 0;
+  while (T.beaming && f++ < 60 * 5) { K.cooldown = Math.max(K.cooldown, 1); step(1); }
+  assert(!T.beaming && game.kaiju.hp < hp0, `${label}: chiêu đặc biệt gây ${Math.round(hp0 - game.kaiju.hp)} sát thương rồi kết thúc`);
+}
+
+// Link chạm 100% → giữ 5 giây (trúng đòn không mất), hết giờ mà chưa dùng thì tụt.
+function checkLinkHold(label) {
+  let f = 0;
+  while (f++ < 60 * 30) {
+    const T = game.titan;
+    const K = game.kaiju;
+    ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    step(1);
+  }
+  const T = game.titan;
+  const K = game.kaiju;
+  T.x = K.x - K.half - 500;
+  const kx = K.x;
+  T.link = 95;
+  T.linkHold = 0;
+  // bấm F + J cùng lúc (lặp lại nếu khung hình bị nuốt bởi hitstop)
+  for (let i = 0; i < 30 && !T.arms.L; i++) { press('KeyF'); press('KeyJ'); step(1); release('KeyF'); release('KeyJ'); }
+  assert(T.link === 100 && T.linkHold > 4.9, `${label}: Link chạm 100% → khóa ${T.linkHold.toFixed(1)}s`);
+  for (let i = 0; i < 60; i++) { K.cooldown = 5; K.x = kx; step(1); }
+  testHook.hitTitan(5, 0, 1, { linkDrain: 20 });
+  for (let i = 0; i < 60 * 3; i++) { K.cooldown = 5; K.x = kx; step(1); }
+  assert(T.link === 100, `${label}: trong 5s bị trúng đòn vẫn giữ Link 100%`);
+  for (let i = 0; i < 60 * 1.2; i++) { K.cooldown = 5; K.x = kx; step(1); }
+  assert(T.link < 100 && T.linkHold === 0, `${label}: hết 5s chưa dùng chiêu → Link tụt (${Math.round(T.link)}%)`);
+}
+
+function checkSpecial(label, gapFromRange = -20) {
+  let f = 0;
+  while (f++ < 60 * 30) {
+    const T = game.titan;
+    const K = game.kaiju;
+    ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    step(1);
+  }
+  const T = game.titan;
+  const K = game.kaiju;
+  T.energy = 100;
+  const RANGE = 2 * 450 * 0.64; // 2 lần chiều cao Titan
+  T.x = K.x - K.half - (RANGE + gapFromRange); // mép thân quái cách Titan đúng (tầm + gapFromRange)
+  K.cooldown = 5;
+  const hp0 = K.hp;
+  press('KeyI'); release('KeyI');
+  f = 0;
+  const x0 = T.x;
+  const kx = K.x;
+  // giữ quái đứng yên & không ra đòn để đo đúng tầm lúc chiêu được tung ra
+  do { K.cooldown = Math.max(K.cooldown, 1); if (!game.kaiju.dying && game.kaiju.hp === hp0) K.x = kx; step(1); } while ((T.arms.R || T.leap || T.slide) && f++ < 300);
+  step(10);
+  if (gapFromRange > 0) {
+    assert(game.kaiju.hp === hp0, `${label}: ngoài tầm ${Math.round(RANGE)}px (+${gapFromRange}px) thì chiêu I hụt`);
+    return;
+  }
+  assert(game.kaiju.hp < hp0, `${label}: chiêu I trúng chắc chắn ở mép tầm ${Math.round(RANGE)}px (-${Math.round(hp0 - game.kaiju.hp)} HP)`);
+  const blade = T.def.moves.blade || { range: 320 };
+  const dx = Math.abs(game.kaiju.x - T.x);
+  assert(dx < blade.range + game.kaiju.half, `${label}: sau chiêu I đứng sát quái, trong tầm chém K (${Math.round(dx)} < ${Math.round(blade.range + game.kaiju.half)})`);
+}
+checkSpecial('VANGUARD');
+checkSpecialInterrupt('VANGUARD');
+checkUlt('VANGUARD', 'reactor');
+checkLinkHold('VANGUARD');
+checkSpecial('VANGUARD', 60);
 
 let sawSync = false;
 let sawBeam = false;
@@ -135,7 +256,7 @@ for (let wave = 0; wave < 3; wave++) {
     step(30);
     press('Enter'); step(1); release('Enter');
     assert(game.state === 'fight' && game.wave === wave + 1, `bắt đầu đợt ${wave + 2}`);
-    assert(game.titan.maxHp === 150 + 30 * game.upgrades.armor, 'nâng cấp giáp được áp dụng');
+    assert(game.titan.maxHp === game.titan.def.hp + 30 * game.upgrades.armor, 'nâng cấp giáp được áp dụng');
   }
 }
 assert(game.state === 'win', 'hoàn thành chiến dịch');
@@ -148,5 +269,62 @@ console.log(sawCounter ? 'ok  - có phản đòn' : 'note - bot chưa phản đ�
 step(70);
 press('Enter'); step(1); release('Enter');
 assert(game.state === 'title', 'quay về màn hình chính');
+
+// Chọn TEMPEST, chơi đợt 1: lưỡi kép cổ tay + tên lửa ngực.
+press('Enter'); step(1); release('Enter');
+step(20);
+press('KeyD'); step(1); release('KeyD');
+assert(game.pick === 1, 'D chuyển sang Titan thứ hai');
+press('Enter'); step(1); release('Enter');
+assert(game.state === 'fight' && game.titan.def.id === 'tempest' && game.titan.maxHp === 115, 'chọn TEMPEST, HP 115');
+checkSpecial('TEMPEST');
+checkSpecialInterrupt('TEMPEST');
+checkUlt('TEMPEST', 'orbital');
+checkSpecial('TEMPEST', 60);
+let sawMissile = 0;
+let sawWrist = false;
+{
+  // Bot riêng cho TEMPEST: thử lần lượt đập phản lực (I) → 6 tên lửa (giữ L đủ 2s) → lưỡi kép (K).
+  let f = 0;
+  let holdingL = false;
+  while (game.state === 'fight' && f < 60 * 240) {
+    f++;
+    const TT = game.titan;
+    const KK = game.kaiju;
+    ['KeyA', 'KeyD', 'KeyS'].forEach(release);
+    if (KK && !KK.dying && KK.state !== 'emerge') {
+      const dist = Math.abs(KK.x - TT.x);
+      const busy = TT.arms.R || TT.leap;
+      if (!TT.leapHits) {
+        if (!busy && TT.energy >= 25) { press('KeyI'); release('KeyI'); }
+        else if (dist > 260) press(KK.x > TT.x ? 'KeyD' : 'KeyA');
+      } else if (!sawMissile) {
+        // giữ quái không ra đòn trong lúc kiểm tra nạp đủ 2s (bot không biết né)
+        KK.cooldown = Math.max(KK.cooldown, 0.5);
+        // đang giữ L mà phát nạp đã mất (bị đánh trúng) → nhả ra để thử lại
+        if (holdingL && !TT.charge) { release('KeyL'); holdingL = false; }
+        else if (holdingL && TT.charge.full) { release('KeyL'); holdingL = false; }
+        // lùi ra xa tầm vuốt/quật đuôi rồi mới đứng nạp 2s
+        else if (!holdingL && dist < 450) press(KK.x > TT.x ? 'KeyA' : 'KeyD');
+        else if (!holdingL && !busy && !TT.charge && TT.energy >= 60 && TT.missileCD <= 0) { release('KeyL'); press('KeyL'); holdingL = 'starting'; }
+      } else if (!sawWrist) {
+        if (dist > 220) press(KK.x > TT.x ? 'KeyD' : 'KeyA');
+        else if (!busy && !TT.charge) { press('KeyK'); release('KeyK'); }
+      } else {
+        botFrame(f);
+      }
+    }
+    step(1);
+    if (holdingL === 'starting') holdingL = true;
+    sawMissile = Math.max(sawMissile, game.projectiles.filter((p) => p.missile).length);
+    const a = game.titan.arms.R;
+    if (a && a.name === 'blade' && a.fired) sawWrist = true;
+  }
+  release('KeyL');
+}
+assert(sawMissile === 6, `TEMPEST phóng loạt tên lửa (${sawMissile} quả cùng lúc)`);
+assert(sawWrist, 'TEMPEST chém bằng lưỡi kép');
+assert(game.titan.leapHits > 0, `TEMPEST đập phản lực (I) trúng đầu quái (${game.titan.leapHits} lần)`);
+console.log(`${game.state === 'clear' ? 'ok  ' : 'note'} - TEMPEST đợt 1 kết thúc: ${game.state}`);
 assert(audioStats.started > 2000, `nhạc nền và hiệu ứng âm thanh chạy (${audioStats.started} nốt/âm)`);
 console.log('\nTất cả smoke test đều qua.');
