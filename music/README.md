@@ -6,4 +6,4 @@ Cách khác: kéo thả một file nhạc bất kỳ vào cửa sổ game khi đ
 
 `theme.mp3` là nhạc nền mặc định, được phép theo dõi trong Git để GitHub Actions build được. Các file nhạc khác vẫn bị `.gitignore` loại trừ.
 
-Chạy `node tools/build.js` từ thư mục `eyerim/` sẽ sao chép MP3 vào `dist/music/theme.mp3` cho GitHub Pages, đồng thời nhúng MP3 vào `release/eyerim.html` cho GitHub Releases. Build sẽ báo lỗi nếu thiếu MP3; không tự tạo bản phát hành thiếu nhạc.
+Chạy `node tools/build.js` từ thư mục `eyerim/` sẽ sao chép MP3 vào `dist/music/theme.mp3` cho GitHub Pages, đồng thời nhúng MP3 vào `dist/eyerim.html` cho GitHub Releases. Build sẽ báo lỗi nếu thiếu MP3; không tự tạo bản phát hành thiếu nhạc.

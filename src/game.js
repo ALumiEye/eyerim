@@ -317,7 +317,8 @@
       if (this.audio.paused && sfx.ac && !sfx.muted && audioCfg.music > 0) this.audio.play().catch(() => {});
     },
   };
-  userTrack.init();
+  // Trang xem mẫu Titan không phát nhạc, nên không tải music/ theo đường dẫn tương đối của titans/.
+  if (!titanGallery) userTrack.init();
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {
     e.preventDefault();

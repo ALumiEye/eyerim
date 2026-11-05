@@ -6,7 +6,11 @@ Game hành động 2D chạy trên trình duyệt thuộc hệ dự án alumieye
 
 ## Chơi
 
-Mở `index.html` bằng trình duyệt. Không cần cài đặt, không cần server, không dùng thư viện ngoài.
+- **Trên trình duyệt:** https://alumieye.github.io/eyerim/
+- **Offline, không cần cài:** tải `eyerim.html` ở [bản phát hành mới nhất](https://github.com/ALumiEye/eyerim/releases/latest) rồi bấm đúp để mở. Cả game và nhạc nằm trong một file.
+- **Từ mã nguồn:** mở `index.html` bằng trình duyệt. Không cần server hay thư viện ngoài để chơi.
+
+Phiên bản đang chạy hiện ở cạnh dưới khung màn hình (tag Release, hoặc `main · <commit>` trên Pages).
 
 ## Chế độ chơi
 
@@ -79,13 +83,7 @@ Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, kh�
 
 Giữ nguyên UI sci-fi TIDEBREAKER: nền tối, cyan, hiệu ứng và bố cục menu/HUD. Vỏ màn hình điều khiển vuông góc bao quanh bốn cạnh canvas, nền kem, viền tím đậm và nhấn cam. Cạnh trên có logo ALumiEye gốc, Lumi đúng tỷ lệ và tên EyeRim; cạnh dưới có nhãn máy, khe trang trí và đèn trạng thái. Canvas tự co theo lòng khung, không che/cắt HUD hay cảnh báo. Dùng favicon mặt Lumi. Ảnh trong `assets/` là bản sao nguyên byte từ EyeTank và được đóng gói vào cả bản Pages lẫn HTML offline.
 
-Kiểm tra bằng Chrome thật (dùng `playwright-core` đã có trong `../eyetank/node_modules/`):
-
-```sh
-node tools/browser-check.js
-```
-
-Lệnh tự build, chạy thử Pages và HTML offline, vào trận bằng bàn phím, kiểm tra nhạc/phím M, logo, tỷ lệ Lumi và màn nhỏ. Ảnh chụp được lưu vào `shots/brand-*.png`.
+Kiểm tra bằng Chrome thật: `npm run check:browser` (xem mục Kiểm thử). Ảnh chụp được lưu vào `shots/brand-*.png`.
 
 ## Nhạc riêng
 
@@ -93,36 +91,35 @@ Lệnh tự build, chạy thử Pages và HTML offline, vào trận bằng bàn 
 
 ## Build, GitHub Pages và Releases
 
-Cần Node.js 22 trở lên để build/kiểm thử, không cần cài dependency. Chạy từ thư mục `eyerim/`:
+Cần Node.js 22+ và Chrome (chỉ để kiểm thử trên trình duyệt). Chạy từ thư mục `eyerim/`:
 
 ```sh
-node tools/build.js
+npm ci          # chỉ cài playwright-core để kiểm thử; game không có dependency
+npm run build   # = node tools/build.js
 ```
 
-Lệnh này tạo hai đầu ra, đều có sẵn nhạc:
+Một lệnh build ra cả hai kênh, đều có sẵn nhạc:
 
-- **`dist/` — GitHub Pages:** HTML, CSS, mã game, trang mẫu Titan và `music/theme.mp3`. Deploy nguyên thư mục, không cần chép nhạc thủ công; đường dẫn tương đối chạy được dưới `/tên-repo/`.
-- **`release/eyerim.html` — GitHub Releases:** một file HTML nhúng CSS, JavaScript và MP3 Base64. Tải file về, mở trực tiếp để chơi offline; không cần thư mục nhạc hay server. Trang xem mẫu Titan riêng không được nhúng vào bản một file.
+- **`dist/` — GitHub Pages:** HTML, CSS, mã game, trang mẫu Titan, `music/theme.mp3`; đường dẫn tương đối chạy được dưới `/eyerim/`.
+- **`dist/eyerim.html` — GitHub Releases:** một file nhúng CSS, JavaScript, ảnh và MP3 (Base64), mở trực tiếp để chơi offline. File này cũng có trên Pages tại `/eyerim/eyerim.html`. Trang mẫu Titan không nhúng vào bản một file.
 
-Nhạc bắt đầu sau thao tác bàn phím/chuột đầu tiên theo chính sách của trình duyệt. Âm lượng và phím M giữ nguyên. File nguồn `music/theme.mp3` phải được commit cùng mã nguồn để GitHub build được; `dist/` và `release/` là đầu ra sinh tự động nên không commit. Build báo lỗi nếu thiếu nhạc.
+Biến môi trường `GAME_VERSION` đặt chữ phiên bản hiển thị (workflow tự đặt). Nhạc bắt đầu sau thao tác bàn phím/chuột đầu tiên theo chính sách trình duyệt. `music/theme.mp3` phải được commit để GitHub build được; `dist/` là đầu ra nên không commit. Build báo lỗi nếu thiếu nhạc.
 
-### GitHub Pages
+### Quy trình phát hành
 
-1. Trong repo GitHub, vào **Settings → Pages → Build and deployment → Source → GitHub Actions** (thiết lập một lần).
-2. Commit/push mã nguồn, MP3 và `.github/workflows/pages.yml` lên `main`.
-3. Workflow kiểm thử, build và deploy **chỉ `dist/`** lên Pages. Có thể chạy lại bằng **Actions → GitHub Pages → Run workflow**.
+| Workflow | Khi nào | Làm gì |
+|---|---|---|
+| `ci.yml` | PR, push `main` | `npm run check`: kiểm thử Node, build, chơi thử Pages + HTML offline trên Chrome |
+| `pages.yml` | push `main` | như trên, rồi deploy `dist/` lên Pages (Settings → Pages → Source: **GitHub Actions**) |
+| `release.yml` | push tag `vX.Y.Z` | như trên, rồi tạo Release kèm `eyerim.html` và `SHA256SUMS.txt` |
 
-### GitHub Releases
-
-Tạo và **Publish** một GitHub Release, với tag trỏ tới commit đã có các file build/workflow và MP3. Workflow `.github/workflows/release.yml` tự kiểm thử, build và đính kèm **`eyerim.html`** vào mục **Assets** của Release. Bản nháp chưa xuất bản không chạy workflow. Các file **Source code (zip/tar.gz)** do GitHub tạo vẫn là mã nguồn, không phải bản HTML độc lập.
-
-Build/test trên máy không tự push, deploy, tạo tag hay xuất bản Release.
+Phát hành bản mới: viết ghi chú ở `docs/releases/vX.Y.Z.md` (không có thì GitHub tự sinh), tăng `version` trong `package.json`, commit, rồi `git tag vX.Y.Z && git push origin vX.Y.Z`. Release chỉ xuất hiện khi build và kiểm thử đã qua. Các file **Source code (zip/tar.gz)** do GitHub tạo là mã nguồn, không phải bản chơi offline.
 
 ## Xem mẫu Titan
 
 Mở trực tiếp `titans/vanguard.html` hoặc `titans/tempest.html` trong trình duyệt. Mỗi trang có hai hướng nhìn ngang và 12 động tác/chiêu thức, nút phát/dừng, đổi hướng, tốc độ, phóng to và thanh tua thời điểm. Không cần server hay cài thư viện.
 
-Các trang dùng chung hàm vẽ và IK trong `src/game.js`, nên chỉnh nhân vật sẽ cập nhật cả game lẫn trang mẫu. Hiệu ứng đạn/tên lửa trên trang mẫu là minh họa chuyển động, không mô phỏng sát thương hay AI. Tempest bám ảnh `../striker-eureka.jpg`; Vanguard phối hợp ba ảnh ở thư mục gốc: `../gipsy danger.jpeg` (ngang), `../front gipsy.jpg` (trước) và `../back gipsy.webp` (sau).
+Các trang dùng chung hàm vẽ và IK trong `src/game.js`, nên chỉnh nhân vật sẽ cập nhật cả game lẫn trang mẫu. Hiệu ứng đạn/tên lửa trên trang mẫu là minh họa chuyển động, không mô phỏng sát thương hay AI. Gallery chỉ dùng tên Vanguard/Tempest và tài nguyên trong repo, không hiển thị tên hay ảnh tham chiếu bên ngoài.
 
 ## Cấu trúc
 
@@ -133,12 +130,13 @@ src/game.js     toàn bộ game: logic, AI, đồ họa vẽ bằng code, âm th
 titans/        mỗi Titan một HTML xem mẫu, dùng chung gallery.css và gallery.js
 test/gallery.js kiểm tra mọi động tác/hướng của các trang mẫu
 test/smoke.js   bot tự chơi hết chiến dịch trong Node với canvas giả
+tools/build.js  build dist/ (Pages) và dist/eyerim.html (Release)
 ```
 
 ## Kiểm thử
 
-```
-node test/smoke.js
-node test/gallery.js
-node test/build.js
+```sh
+npm test               # smoke (bot chơi hết chiến dịch), gallery, build — chỉ cần Node
+npm run check:browser  # build rồi chơi thật trên Chrome: Pages, gallery, HTML offline, nhạc, màn nhỏ
+npm run check          # tất cả, như CI
 ```

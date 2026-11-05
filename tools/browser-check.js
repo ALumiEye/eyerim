@@ -1,17 +1,17 @@
-// Kiểm tra thật bằng Chrome; dùng playwright-core sẵn có của EyeTank, không cài thêm.
+// Kiểm tra thật bằng Chrome (playwright-core trong devDependencies): npm run check:browser
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { pathToFileURL } = require('node:url');
-const { chromium } = require('../../eyetank/node_modules/playwright-core');
+const { chromium } = require('playwright-core');
 const { build } = require('./build');
 const root = path.resolve(__dirname, '..');
 const shots = path.join(root, 'shots');
 
 (async () => {
-  build();
+  const { version } = build();
   fs.mkdirSync(shots, { recursive: true });
   const server = http.createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -110,6 +110,7 @@ const shots = path.join(root, 'shots');
     const base = `http://127.0.0.1:${server.address().port}`;
     await page.goto(`${base}/dist/index.html`);
     await play('Pages', 'brand-pages');
+    assert.equal(await page.locator('#game-version').innerText(), version, 'Pages hiển thị phiên bản build');
     for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(size);
       await page.reload();
@@ -118,8 +119,17 @@ const shots = path.join(root, 'shots');
       await page.screenshot({ path: path.join(shots, `brand-${size.width}.png`) });
     }
     await page.setViewportSize({ width: 1440, height: 900 });
+    for (const titan of ['vanguard', 'tempest']) {
+      await page.goto(`${base}/dist/titans/${titan}.html`);
+      await page.waitForFunction(() => document.querySelectorAll('#clips button').length === 12);
+      await page.locator('#clips button').nth(2).click();
+      assert.equal(await page.locator('#clips button').nth(2).getAttribute('aria-pressed'), 'true');
+      assert(!/striker|eureka|gipsy/i.test(await page.locator('body').innerText()), 'gallery chỉ dùng tên Titan của game');
+      assert.equal(await page.locator('details, .reference').count(), 0, 'gallery không có ảnh tham chiếu ngoài');
+      console.log(`ok - gallery ${titan}: đủ 12 động tác, đổi chiêu được, không tải tài nguyên ngoài`);
+    }
     await page.context().setOffline(true);
-    await page.goto(pathToFileURL(path.join(root, 'release/eyerim.html')).href);
+    await page.goto(pathToFileURL(path.join(root, 'dist/eyerim.html')).href);
     await play('HTML offline', 'brand-offline');
     assert(await page.evaluate(() => document.getElementById('brand').src.startsWith('data:image/png') &&
       document.getElementById('brand-lumi').src.startsWith('data:image/png') &&

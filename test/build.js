@@ -10,17 +10,35 @@ const { build } = require('../tools/build');
 const root = path.resolve(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'eyerim-build-'));
 try {
-  const { pages, releaseFile } = build(temp);
-  for (const file of ['index.html', 'style.css', 'src/game.js', 'music/theme.mp3',
+  const { pages, releaseFile } = build(temp, 'v9.9.9-test');
+  assert.equal(releaseFile, path.join(pages, 'eyerim.html'), 'HTML độc lập nằm trong dist/ để lên cả Pages lẫn Release');
+  const source = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.equal(fs.readFileSync(path.join(pages, 'index.html'), 'utf8'),
+    source.replace('<span id="game-version">BẢN NGUỒN</span>', '<span id="game-version">v9.9.9-test</span>'),
+    'Pages chỉ khác nguồn ở ô phiên bản');
+  for (const file of ['style.css', 'src/game.js', 'music/theme.mp3',
     'titans/vanguard.html', 'titans/tempest.html', 'titans/gallery.css', 'titans/gallery.js',
     'assets/alumieye.png', 'assets/lumi.png', 'assets/favicon.png']) {
     assert.deepEqual(fs.readFileSync(path.join(pages, file)), fs.readFileSync(path.join(root, file)), file);
+  }
+  for (const titan of ['vanguard', 'tempest']) {
+    const galleryFile = path.join(pages, 'titans', `${titan}.html`);
+    const gallery = fs.readFileSync(galleryFile, 'utf8');
+    assert(!/striker|eureka|gipsy/i.test(gallery), `${titan}: chỉ dùng tên Titan của game`);
+    assert(!/<details\b/i.test(gallery), `${titan}: không còn khối ảnh tham chiếu`);
+    for (const [, asset] of gallery.matchAll(/(?:src|href)="([^"]+)"/g)) {
+      const resolved = path.resolve(path.dirname(galleryFile), asset);
+      assert(resolved.startsWith(pages + path.sep), `${titan}: tài nguyên không thoát khỏi bản Pages`);
+      assert(fs.existsSync(resolved), `${titan}: đủ tài nguyên ${asset}`);
+    }
   }
   assert(fs.existsSync(path.join(pages, '.nojekyll')));
   const html = fs.readFileSync(releaseFile, 'utf8');
   assert(!/<script\b[^>]*\bsrc\s*=/i.test(html), 'không tải JavaScript bên ngoài');
   assert(!/<link\b[^>]*\brel="stylesheet"/i.test(html), 'không tải CSS bên ngoài');
   assert(html.includes(fs.readFileSync(path.join(root, 'style.css'), 'utf8')));
+  assert(html.includes('<span id="game-version">v9.9.9-test</span>'), 'HTML độc lập hiển thị phiên bản');
+  assert(!html.includes('BẢN NGUỒN'));
   for (const name of ['alumieye.png', 'lumi.png', 'favicon.png']) {
     const data = fs.readFileSync(path.join(root, 'assets', name));
     assert(html.includes(`data:image/png;base64,${data.toString('base64')}`), `${name} được nhúng nguyên bản`);

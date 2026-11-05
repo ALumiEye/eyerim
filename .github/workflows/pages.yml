@@ -1,5 +1,6 @@
-name: GitHub Pages
+name: Deploy to GitHub Pages
 
+# Mỗi lần push main: kiểm thử, build rồi deploy dist/ lên https://alumieye.github.io/eyerim/
 on:
   push:
     branches: [main]
@@ -7,6 +8,8 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
@@ -16,32 +19,27 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
-      - name: Kiểm thử
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Kiểm thử và build
         run: |
-          node test/smoke.js
-          node test/gallery.js
-          node test/build.js
-      - name: Build Pages và HTML độc lập
-        run: node tools/build.js
-      - uses: actions/upload-pages-artifact@v3
+          export GAME_VERSION="main · ${GITHUB_SHA::7}"
+          npm run check
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/configure-pages@v5
-      - name: Triển khai Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - id: deployment
+        uses: actions/deploy-pages@v5
