@@ -75,9 +75,48 @@ Thông số hư cấu của EyeRim, không phải số liệu chính thức củ
 
 Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, không tính vây lưng. Bộ vẽ thu/phóng đồng nhất cả hai trục để hai Titan cao bằng nhau mà không đổi tỷ lệ đầu, thân hay tay chân. Thông số xuất hiện trên thẻ chọn Titan và trang xem mẫu; không thay đổi HP, tốc độ hay sát thương.
 
+## Nhận diện ALumiEye
+
+Giữ nguyên UI sci-fi TIDEBREAKER: nền tối, cyan, hiệu ứng và bố cục menu/HUD. Vỏ màn hình điều khiển vuông góc bao quanh bốn cạnh canvas, nền kem, viền tím đậm và nhấn cam. Cạnh trên có logo ALumiEye gốc, Lumi đúng tỷ lệ và tên EyeRim; cạnh dưới có nhãn máy, khe trang trí và đèn trạng thái. Canvas tự co theo lòng khung, không che/cắt HUD hay cảnh báo. Dùng favicon mặt Lumi. Ảnh trong `assets/` là bản sao nguyên byte từ EyeTank và được đóng gói vào cả bản Pages lẫn HTML offline.
+
+Kiểm tra bằng Chrome thật (dùng `playwright-core` đã có trong `../eyetank/node_modules/`):
+
+```sh
+node tools/browser-check.js
+```
+
+Lệnh tự build, chạy thử Pages và HTML offline, vào trận bằng bàn phím, kiểm tra nhạc/phím M, logo, tỷ lệ Lumi và màn nhỏ. Ảnh chụp được lưu vào `shots/brand-*.png`.
+
 ## Nhạc riêng
 
 Đặt file nhạc của bạn vào `music/theme.mp3` (hoặc kéo thả file vào cửa sổ game) để thay nhạc nền tổng hợp. Xem `music/README.md`.
+
+## Build, GitHub Pages và Releases
+
+Cần Node.js 22 trở lên để build/kiểm thử, không cần cài dependency. Chạy từ thư mục `eyerim/`:
+
+```sh
+node tools/build.js
+```
+
+Lệnh này tạo hai đầu ra, đều có sẵn nhạc:
+
+- **`dist/` — GitHub Pages:** HTML, CSS, mã game, trang mẫu Titan và `music/theme.mp3`. Deploy nguyên thư mục, không cần chép nhạc thủ công; đường dẫn tương đối chạy được dưới `/tên-repo/`.
+- **`release/eyerim.html` — GitHub Releases:** một file HTML nhúng CSS, JavaScript và MP3 Base64. Tải file về, mở trực tiếp để chơi offline; không cần thư mục nhạc hay server. Trang xem mẫu Titan riêng không được nhúng vào bản một file.
+
+Nhạc bắt đầu sau thao tác bàn phím/chuột đầu tiên theo chính sách của trình duyệt. Âm lượng và phím M giữ nguyên. File nguồn `music/theme.mp3` phải được commit cùng mã nguồn để GitHub build được; `dist/` và `release/` là đầu ra sinh tự động nên không commit. Build báo lỗi nếu thiếu nhạc.
+
+### GitHub Pages
+
+1. Trong repo GitHub, vào **Settings → Pages → Build and deployment → Source → GitHub Actions** (thiết lập một lần).
+2. Commit/push mã nguồn, MP3 và `.github/workflows/pages.yml` lên `main`.
+3. Workflow kiểm thử, build và deploy **chỉ `dist/`** lên Pages. Có thể chạy lại bằng **Actions → GitHub Pages → Run workflow**.
+
+### GitHub Releases
+
+Tạo và **Publish** một GitHub Release, với tag trỏ tới commit đã có các file build/workflow và MP3. Workflow `.github/workflows/release.yml` tự kiểm thử, build và đính kèm **`eyerim.html`** vào mục **Assets** của Release. Bản nháp chưa xuất bản không chạy workflow. Các file **Source code (zip/tar.gz)** do GitHub tạo vẫn là mã nguồn, không phải bản HTML độc lập.
+
+Build/test trên máy không tự push, deploy, tạo tag hay xuất bản Release.
 
 ## Xem mẫu Titan
 
@@ -101,4 +140,5 @@ test/smoke.js   bot tự chơi hết chiến dịch trong Node với canvas gi�
 ```
 node test/smoke.js
 node test/gallery.js
+node test/build.js
 ```

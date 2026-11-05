@@ -41,7 +41,15 @@
   canvas.width = W;
   canvas.height = H;
   function fit() {
-    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    const screen = document.getElementById('screen-bezel');
+    let availableWidth = window.innerWidth;
+    let availableHeight = window.innerHeight;
+    if (screen && screen.clientWidth && screen.clientHeight) {
+      const style = window.getComputedStyle(screen);
+      availableWidth = screen.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      availableHeight = screen.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    }
+    const s = Math.min(Math.max(1, availableWidth) / W, Math.max(1, availableHeight) / H);
     canvas.style.width = Math.floor(W * s) + 'px';
     canvas.style.height = Math.floor(H * s) + 'px';
   }

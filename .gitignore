@@ -3,3 +3,6 @@ node_modules/
 *.log
 music/*
 !music/README.md
+!music/theme.mp3
+dist/
+release/
