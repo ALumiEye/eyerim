@@ -36,7 +36,8 @@
   const PI2 = Math.PI * 2;
 
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');
+  const titanGallery = window.__TITAN_GALLERY__ === true;
   canvas.width = W;
   canvas.height = H;
   function fit() {
@@ -44,8 +45,10 @@
     canvas.style.width = Math.floor(W * s) + 'px';
     canvas.style.height = Math.floor(H * s) + 'px';
   }
-  window.addEventListener('resize', fit);
-  fit();
+  if (!titanGallery) {
+    window.addEventListener('resize', fit);
+    fit();
+  }
 
   // ============================================================ TIỆN ÍCH
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -482,13 +485,16 @@
     jet: { arm: 'R', windup: 1.0, active: 0.18, recover: 0.5, dmg: 34, range: 330, kb: 150, heavy: true, energy: 25 },
   };
 
-  // Các Titan có thể chọn. Cả hai đều là thiết kế riêng của game.
+  // Các Titan có thể chọn. Vanguard vẽ theo ảnh tham chiếu ở thư mục gốc.
   // stats: điểm 1–5 chỉ để hiển thị trên màn hình chọn.
   // moves: đòn thay thế cho ô K (blade) và L (cannon) của Titan đó.
   const TITANS = [
     {
       id: 'vanguard', name: 'EYERIM VANGUARD', role: 'CHIẾN ĐẤU TRỰC DIỆN · GIÁP NẶNG',
-      desc: 'Khung giáp trắng-thép bền bỉ. Kiếm xích tầm xa và pháo plasma nạp lực.',
+      desc: 'Giáp xanh thép, vai sọc trắng, kính vàng và lò cam. Kiếm xích tầm xa, pháo plasma nạp lực.',
+      // Thông số hư cấu EyeRim; chiều cao đo từ đế chân đến đỉnh đầu, không tính vây.
+      heightM: 80, massTonnes: 2400,
+      model: { crown: 396 + BODY_LIFT, sole: 4 },
       hp: 150, speed: 270, power: 1, quick: 1, regen: 1,
       stats: { armor: 5, speed: 3, power: 4, energy: 3 },
       weapons: [['I', 'Đấm phản lực — lao tới, chắc trúng'], ['K', 'Kiếm xích — chém nặng, tầm xa'], ['L', 'Pháo plasma — giữ để nạp, thả để bắn']],
@@ -496,14 +502,16 @@
       ult: 'reactor', ultName: 'XUNG LÒ PHẢN ỨNG',
       head: 'visor', missiles: false, wristBlades: false,
       pal: {
-        front: { hi: '#f2f5f8', armor: '#c9d1db', lo: '#7d8a99', frame: '#262f3a', frameHi: '#3d4958', accent: '#ff8a1f', line: 'rgba(8,14,22,0.6)' },
-        back: { hi: '#9aa5b2', armor: '#76828f', lo: '#4c5663', frame: '#161c24', frameHi: '#252e39', accent: '#a65a17', line: 'rgba(4,7,10,0.6)' },
+        front: { hi: '#7993a5', armor: '#3d566e', lo: '#213247', frame: '#111b23', frameHi: '#596873', accent: '#ab4d45', line: '#15202c', steel: '#a7b6ba', visor: '#eec260' },
+        back: { hi: '#526d83', armor: '#2d4359', lo: '#172738', frame: '#0c151e', frameHi: '#40515e', accent: '#723b3c', line: '#0f1a25', steel: '#788f98', visor: '#ae8c48' },
       },
       moves: {},
     },
     {
       id: 'tempest', name: 'EYERIM TEMPEST', role: 'TẤN CÔNG CHỚP NHOÁNG · CƠ ĐỘNG',
-      desc: 'Khung giáp đỏ thẫm nhẹ và nhanh. Lưỡi kép ở cổ tay, ngực là bệ phóng 6 tên lửa.',
+      desc: 'Giáp bạc xám kiểu Striker Eureka, vai rộng và kính tối. Lưỡi kép cổ tay, ngực phóng 6 tên lửa.',
+      heightM: 80, massTonnes: 1850,
+      model: { crown: 372 + BODY_LIFT, sole: 0 },
       hp: 115, speed: 340, power: 0.9, quick: 0.75, regen: 1.3,
       stats: { armor: 3, speed: 5, power: 3, energy: 5 },
       weapons: [['I', 'Đập phản lực — bay lên, nện xuống đầu quái'], ['K', 'Lưỡi kép cổ tay — chém nhanh, choáng'], ['L', '6 tên lửa — giữ đủ 2s mới phóng, nạp lại 4,5s']],
@@ -511,8 +519,8 @@
       ult: 'orbital', ultName: 'MƯA TÊN LỬA VỆ TINH',
       head: 'sensor', missiles: true, wristBlades: true,
       pal: {
-        front: { hi: '#e7a3a0', armor: '#a8343a', lo: '#5e1a20', frame: '#1d2024', frameHi: '#353a41', accent: '#5dffb0', line: 'rgba(16,6,8,0.6)' },
-        back: { hi: '#8f5457', armor: '#6a2228', lo: '#3a1014', frame: '#121417', frameHi: '#22262b', accent: '#2f9a6a', line: 'rgba(8,3,4,0.6)' },
+        front: { hi: '#a6adb0', armor: '#707b83', lo: '#434f59', frame: '#1c242a', frameHi: '#505b61', accent: '#b59a68', line: 'rgba(17,25,32,0.85)', trim: '#4e8292' },
+        back: { hi: '#76818a', armor: '#4e5b66', lo: '#303c47', frame: '#121b24', frameHi: '#384851', accent: '#87734e', line: 'rgba(9,17,27,0.85)', trim: '#345d70' },
       },
       moves: {
         blade: { arm: 'R', windup: 0.16, active: 0.14, recover: 0.26, dmg: 17, range: 240, kb: 300, heavy: true },
@@ -815,8 +823,9 @@
       return;
     }
     if (m.projectile) {
-      const x0 = T.x + T.facing * 225 * TITAN_SCALE;
-      const y0 = GROUND - (256 + BODY_LIFT) * TITAN_SCALE;
+      const scale = titanDrawScale(T);
+      const x0 = T.x + T.facing * 225 * scale;
+      const y0 = GROUND - (256 + BODY_LIFT + T.def.model.sole) * scale;
       let vx = T.facing * 1150;
       let vy = 0;
       if (K && !K.dying) {
@@ -1224,8 +1233,9 @@
         const a = rand(0, PI2);
         const d = 40 + 30 * C.level;
         const mis = T.def.missiles;
-        const fx0 = T.x + T.facing * (mis ? LAUNCHER.x : 225) * TITAN_SCALE;
-        const fy0 = GROUND - (mis ? -LAUNCHER.y + BODY_LIFT : 256 + BODY_LIFT) * TITAN_SCALE;
+        const scale = titanDrawScale(T);
+        const fx0 = T.x + T.facing * (mis ? LAUNCHER.x : 225) * scale;
+        const fy0 = GROUND - ((mis ? -LAUNCHER.y + BODY_LIFT : 256 + BODY_LIFT) + T.def.model.sole) * scale;
         burst(fx0 + Math.cos(a) * d, fy0 + Math.sin(a) * d, 1, mis ? '#ffd36b' : '#bff8ff', 30, 0.25, 3, 0);
       }
       return;
@@ -2285,8 +2295,8 @@
   }
 
   // ============================================================ VẼ: TITAN
-  // EYERIM VANGUARD — thiết kế riêng của game: giáp trắng-thép, sọc cam, kính mắt một dải,
-  // lò phản ứng lục giác có cánh turbine.
+  // VANGUARD: dáng nghiêng, giáp navy, kính vàng và cơ khí theo ảnh mẫu ở root.
+  // Các đoạn chi vẫn dùng IK để giữ đủ động tác chiến đấu.
   function linkColor(l) {
     if (l >= 100) return Math.sin(game.t * 12) > 0 ? '#ffffff' : '#7ff6ff';
     if (l >= 60) return '#4ff0ff';
@@ -2377,7 +2387,9 @@
   function armPose(T, side) {
     const a = T.arms[side];
     const breathe = Math.sin(game.t * 2 + (side === 'L' ? 0 : 1.2)) * 3;
-    const rest = side === 'L' ? { x: -64, y: -166 + breathe } : { x: 76, y: -160 + breathe };
+    const rest = T.def.id === 'vanguard'
+      ? (side === 'L' ? { x: 112, y: -249 + breathe } : { x: 30, y: -161 + breathe })
+      : (side === 'L' ? { x: -64, y: -166 + breathe } : { x: 76, y: -160 + breathe });
     if (T.celebrate) return celebrateArm(T, side);
     if (T.def.special === 'leap' && (T.leap || (T.arms.R && T.arms.R.name === 'jet'))) return leapArm(T, side);
     if (T.beaming) {
@@ -2542,6 +2554,411 @@
     return lean;
   }
 
+  // VANGUARD: giáp xanh thép nhiều lớp theo gipsy danger.jpeg, không đổi bộ vẽ Tempest.
+  function drawVanguardJoint(x, y, r, P) {
+    const steel = P.steel || '#d8e5e9';
+    ctx.fillStyle = P.frame;
+    ellipse(x, y, r + 3, r + 3); ctx.fill();
+    ctx.fillStyle = vGrad(y - r, y + r, steel, P.frameHi, P.lo);
+    ellipse(x, y, r, r); ctx.fill();
+    ctx.strokeStyle = steel; ctx.lineWidth = 1.5;
+    ellipse(x, y, r - 3, r - 3); ctx.stroke();
+    ctx.fillStyle = P.frame;
+    ellipse(x, y, r * 0.55, r * 0.55); ctx.fill();
+    ctx.fillStyle = P.frameHi;
+    ellipse(x, y, r * 0.34, r * 0.34); ctx.fill();
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2 + Math.PI / 4;
+      ctx.fillStyle = steel;
+      ellipse(x + Math.cos(a) * r * 0.77, y + Math.sin(a) * r * 0.77, 1.1, 1.1); ctx.fill();
+    }
+  }
+
+  // Đường ráp và cạnh bắt sáng dùng chung cho các tấm giáp Vanguard.
+  function vanguardSeam(points, color, width = 1) {
+    ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.stroke();
+  }
+
+  // Đường chia tấm, ốc chìm và vết xước ngắn; cắt trong từng tấm giáp.
+  function vanguardPanel(points, P, seed = 0) {
+    const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const y0 = Math.min(...ys), y1 = Math.max(...ys);
+    clipPoly(points, () => {
+      for (let i = 1; i <= 3; i++) {
+        const y = y0 + (y1 - y0) * i / 4;
+        vanguardSeam([[x0, y], [x1, y + 2]], P.line, 0.65);
+        vanguardSeam([[x0, y + 1], [x1, y + 3]], P.frameHi, 0.55);
+      }
+      for (let i = 0; i < 6; i++) {
+        const x = x0 + 5 + ((i * 0.381 + seed) % 1) * Math.max(1, x1 - x0 - 10);
+        const y = y0 + 6 + ((i * 0.273 + seed) % 1) * Math.max(1, y1 - y0 - 12);
+        ctx.fillStyle = P.frame; ellipse(x, y, 1.4, 1.4); ctx.fill();
+        vanguardSeam([[x - 1, y - 1], [x + 0.5, y - 1]], P.steel || P.hi, 0.8);
+        if (i % 2 === 0) vanguardSeam([[x + 3, y + 4], [x + 7, y + 3]], P.frameHi, 0.6);
+      }
+    });
+  }
+
+  function drawVanguardArm(T, side, sx, sy, P, lc) {
+    const p = armPose(T, side);
+    if (p.charging) p.ch = T.charge;
+    const cannon = p.cannon || p.charging;
+    const k = ik(sx, sy, p.x, p.y, cannon ? 96 : 83, cannon ? 120 : 108, 1);
+    const steel = P.steel || '#d8e5e9';
+    seg(sx, sy, k.jx, k.jy, len => {
+      poly([[-12, -19], [len - 5, -20], [len + 7, 16], [-4, 23]], P.frame, P.line);
+      // Thanh truyền sáng nằm giữa giáp và bắp tay, không tô đặc cả khớp.
+      poly([[8, 12], [len - 3, 9], [len + 1, 20], [12, 27]], P.frameHi, P.line);
+      vanguardSeam([[18, 18], [len - 8, 15]], steel, 4);
+      poly([[-7, -25], [25, -30], [len - 12, -24], [len - 4, -8], [len - 19, 14], [0, 18]], vGrad(-30, 18, P.hi, P.armor, P.lo), P.line, 2);
+      poly([[-7, -25], [25, -30], [len - 12, -24], [len - 18, -17], [19, -18]], P.hi, P.line, 0.8);
+      poly([[11, 1], [len - 18, -5], [len - 19, 14], [0, 18]], P.lo, P.line);
+      vanguardSeam([[9, -20], [28, -23], [len - 18, -17]], steel);
+      vanguardSeam([[11, 6], [len - 24, 2]], P.accent, 2);
+      // Sọc trắng đôi trên bắp tay theo ảnh mặt trước.
+      for (const x of [21, 32]) poly([[x, -27], [x + 5, -27], [x + 8, -4], [x + 3, -3]], steel, P.line, 0.5);
+      vanguardPanel([[38, -20], [len - 17, -19], [len - 19, -5], [42, -3]], P, 0.19);
+      for (let i = 0; i < 3; i++) {
+        const x = 24 + i * 10;
+        vanguardSeam([[x, -12], [x + 5, -2]], P.frame, 2);
+      }
+    });
+    if (p.jet) drawElbowJet(p, k, lc);
+    drawVanguardJoint(k.jx, k.jy, 14, P);
+    seg(k.jx, k.jy, k.ex, k.ey, len => {
+      if (cannon) {
+        drawVanguardPlasma(p, len, P);
+        return;
+      }
+      // Giáp cẳng tay vát dài, hai thanh dẫn và bàn tay có đốt.
+      poly([[-7, -13], [len + 12, -14], [len + 17, 17], [-8, 19]], P.frame, P.line);
+      poly([[4, 13], [len - 10, 14], [len - 8, 24], [17, 27]], P.frameHi, P.line);
+      vanguardSeam([[19, 19], [len - 18, 18]], steel, 3);
+      poly([[-9, -21], [18, -32], [len * 0.67, -30], [len + 2, -15], [len + 7, 9], [len - 14, 23], [21, 24], [-10, 10]], vGrad(-32, 24, P.hi, P.armor, P.lo), P.line, 2);
+      poly([[18, -32], [len * 0.67, -30], [len + 2, -15], [len - 9, -11], [len * 0.59, -21], [10, -23]], P.hi, P.line, 0.8);
+      poly([[13, 3], [len - 6, -2], [len + 7, 9], [len - 14, 23], [21, 24]], P.lo, P.line);
+      poly([[17, -18], [len * 0.59, -18], [len - 20, -8], [len - 25, 3], [21, 6], [5, -2]], P.armor, P.line);
+      vanguardSeam([[19, -16], [len * 0.57, -16], [len - 24, -7]], steel, 1.5);
+      // Mảng đỏ dày chạy sát mép giáp và vây bảo vệ ngoài cẳng tay.
+      poly([[16, -29], [27, -30], [len - 25, -26], [len - 21, -20], [29, -23], [19, -19]], P.accent, P.line, 0.8);
+      poly([[3, 18], [27, 27], [len - 22, 27], [len - 9, 18], [len - 24, 35], [25, 35], [-6, 23]], P.lo, P.line);
+      vanguardSeam([[10, 24], [29, 31], [len - 26, 31]], steel, 1.2);
+      vanguardSeam([[23, 10], [len - 23, 7], [len - 14, 16]], P.accent, 2);
+      vanguardPanel([[20, -17], [len * 0.57, -17], [len - 24, -7], [len - 27, 2], [23, 5]], P, 0.31);
+      for (const x of [18, len - 26]) {
+        ctx.fillStyle = steel; ellipse(x, -8, 2, 2); ctx.fill();
+      }
+      // Hai vòng cổ tay, bốn đốt ngón nằm dưới mu bàn tay bọc giáp.
+      poly([[len - 9, -16], [len + 5, -15], [len + 9, 17], [len - 7, 20]], steel, P.line);
+      poly([[len + 4, -15], [len + 26, -12], [len + 34, -1], [len + 28, 17], [len + 8, 18]], P.armor, P.line, 2);
+      poly([[len + 8, -13], [len + 26, -12], [len + 30, -5], [len + 10, -4]], P.hi);
+      for (let i = 0; i < 4; i++) {
+        const x = len + 8 + i * 5;
+        poly([[x, 3], [x + 4, 2], [x + 5, 15], [x + 1, 19]], P.frameHi, P.line, 0.8);
+      }
+      poly([[len - 1, 14], [len + 6, 13], [len + 12, 27], [len + 4, 29], [len - 3, 23]], P.lo, P.line);
+      if (p.blade) drawChainSword(p, len, lc, P);
+    });
+  }
+
+  function drawVanguardLeg(hx, hy, fx, fy, P, lift) {
+    const k = ik(hx, hy, fx, fy - 26, 99, 101, -1);
+    const steel = P.steel || '#d8e5e9';
+    seg(hx, hy, k.jx, k.jy, len => {
+      poly([[-10, -21], [len, -17], [len + 4, 22], [-8, 26]], P.frame, P.line);
+      poly([[8, 18], [len - 12, 16], [len - 8, 26], [15, 33]], P.frameHi, P.line);
+      vanguardSeam([[18, 25], [len - 17, 22]], steel, 4);
+      poly([[-11, -27], [18, -35], [len * 0.66, -31], [len - 9, -19], [len - 6, 8], [len - 20, 21], [9, 26], [-15, 9]], vGrad(-35, 26, P.hi, P.armor, P.lo), P.line, 2);
+      poly([[-11, -27], [18, -35], [len * 0.66, -31], [len * 0.61, -21], [17, -23], [-5, -15]], P.hi, P.line, 0.8);
+      poly([[6, 2], [len * 0.66, -8], [len - 6, 8], [len - 20, 21], [9, 26]], P.lo, P.line);
+      poly([[15, -19], [len * 0.62, -19], [len - 23, -8], [len - 29, 7], [14, 14]], P.armor, P.line);
+      vanguardSeam([[7, -22], [20, -28], [len * 0.55, -25]], steel, 1.2);
+      vanguardSeam([[16, 12], [len - 29, 5], [len - 23, 13]], P.accent, 2.5);
+      poly([[4, -28], [16, -31], [30, -28], [27, -23], [14, -25], [7, -22]], P.accent, P.line, 0.6);
+      poly([[30, -18], [len - 25, -14], [len - 23, 2], [len - 35, 9], [29, 7]], P.lo, P.line);
+      vanguardPanel([[32, -15], [len - 29, -11], [len - 27, 0], [len - 36, 6], [32, 4]], P, 0.24);
+      poly([[len - 31, -15], [len - 23, -12], [len - 25, -7]], steel);
+      for (let i = 0; i < 4; i++) {
+        const x = len * 0.5 + i * 7;
+        vanguardSeam([[x, -14], [x + 7, -6]], P.frame, 1.4);
+      }
+    });
+    seg(k.jx, k.jy, k.ex, k.ey, len => {
+      poly([[-7, -17], [len + 5, -14], [len + 6, 22], [-4, 24]], P.frame, P.line);
+      // Sau bắp chân lộ cơ khí; mặt trước là tấm giáp lớn vát cạnh.
+      poly([[14, 15], [len - 10, 14], [len - 5, 27], [26, 34]], P.frameHi, P.line);
+      vanguardSeam([[29, 27], [len - 13, 22]], steel, 4);
+      for (let i = 0; i < 5; i++) {
+        const x = 30 + i * 10;
+        vanguardSeam([[x, 20], [x + 5, 31]], P.frame, 3);
+      }
+      poly([[-7, -23], [20, -37], [48, -35], [len - 18, -24], [len + 1, -11], [len + 6, 12], [len - 11, 26], [38, 30], [9, 14]], vGrad(-37, 30, P.hi, P.armor, P.lo), P.line, 2);
+      poly([[20, -37], [48, -35], [len - 18, -24], [len + 1, -11], [len - 12, -5], [len - 26, -17], [23, -25]], P.hi, P.line, 0.8);
+      poly([[14, 0], [len - 20, -3], [len + 6, 12], [len - 11, 26], [38, 30], [9, 14]], P.lo, P.line);
+      poly([[24, -24], [len - 30, -18], [len - 16, -3], [len - 21, 14], [41, 19], [22, 7]], P.armor, P.line);
+      vanguardSeam([[31, -19], [len - 35, -14], [len - 25, -3], [len - 29, 12]], P.accent, 3);
+      vanguardSeam([[27, -27], [47, -26], [len - 24, -16]], steel, 1.2);
+      // Chia giáp ống chân thành hai khoang, viền trắng và dải đỏ ngang.
+      poly([[42, -29], [48, -28], [51, 17], [45, 20]], P.lo, P.line);
+      poly([[43, -29], [47, -28], [49, -18], [45, -19]], steel);
+      poly([[50, -27], [54, -26], [55, -18], [51, -18]], P.accent);
+      vanguardPanel([[26, -22], [40, -22], [42, 15], [27, 11]], P, 0.43);
+      vanguardPanel([[54, -20], [len - 31, -16], [len - 20, -3], [len - 24, 14], [55, 18]], P, 0.08);
+      poly([[len - 17, -24], [len - 10, -18], [len - 11, -11], [len - 19, -17]], P.visor || '#f1d084');
+      for (const [x, y] of [[24, -16], [43, 15], [len - 17, 8]]) {
+        ctx.fillStyle = steel; ellipse(x, y, 1.5, 1.5); ctx.fill();
+      }
+    });
+    // Gối kép có thanh truyền chéo, giáp gối tách khỏi giáp đùi.
+    drawVanguardJoint(k.jx - 9, k.jy - 2, 14, P);
+    poly([[k.jx - 7, k.jy - 19], [k.jx + 16, k.jy - 21], [k.jx + 28, k.jy - 6], [k.jx + 18, k.jy + 6]], steel, P.line);
+    drawVanguardJoint(k.jx + 19, k.jy - 7, 10, P);
+    poly([[k.jx + 7, k.jy - 28], [k.jx + 31, k.jy - 24], [k.jx + 39, k.jy - 11], [k.jx + 21, k.jy - 14]], P.armor, P.line);
+    ctx.save(); ctx.translate(k.ex, k.ey); ctx.rotate(-lift * 0.25);
+    poly([[-22, 1], [-9, -10], [13, -8], [28, 7], [57, 17], [63, 24], [58, 28], [-36, 28], [-40, 20], [-31, 11]], vGrad(-10, 28, P.hi, P.armor, P.lo), P.line, 2);
+    poly([[12, -5], [28, 7], [57, 17], [40, 19], [9, 8], [-5, 7]], P.hi, P.line);
+    poly([[-39, 22], [59, 22], [63, 27], [58, 30], [-39, 30]], P.frame, P.line);
+    vanguardSeam([[-25, 19], [9, 18], [37, 24], [55, 24]], steel, 1.2);
+    drawVanguardJoint(0, 0, 12, P);
+    poly([[-15, 5], [-7, 12], [-10, 22], [-22, 20], [-27, 12]], P.lo, P.line);
+    drawVanguardJoint(-17, 14, 6, P);
+    ctx.restore();
+  }
+
+  function drawVanguardBody(T, F, B, lc, by, hip, lean, s1, s2, lift1, lift2, crouch, spreadFeet) {
+    const steel = F.steel || '#d8e5e9';
+    drawVanguardLeg(-19, hip + 6, -35 - 44 * spreadFeet + s2 * (T.moving ? 24 : 0) - crouch * 0.5, -lift2 * 22, B, lift2);
+    drawVanguardLeg(17, hip + 6, 25 + 50 * spreadFeet + s1 * (T.moving ? 24 : 0) + crouch * 0.6, -lift1 * 22, F, lift1);
+    poly([[-44, hip - 19], [24, hip - 23], [44, hip - 3], [29, hip + 24], [-29, hip + 23], [-47, hip + 6]], F.frame, F.line, 2);
+    drawVanguardJoint(-22, hip + 5, 16, F);
+    poly([[-38, hip - 15], [-10, hip - 22], [18, hip - 13], [27, hip + 3], [13, hip + 19], [-15, hip + 12], [-37, hip + 14]], F.armor, F.line);
+    poly([[-35, hip - 15], [-10, hip - 22], [18, hip - 13], [12, hip - 6], [-13, hip - 10]], F.hi);
+    poly([[17, hip - 12], [34, hip - 13], [45, hip + 2], [29, hip + 26], [18, hip + 17]], F.lo, F.line);
+    vanguardSeam([[-26, hip - 8], [-8, hip - 13], [11, hip - 5]], F.accent, 2);
+
+    ctx.save();
+    ctx.translate(0, hip); ctx.rotate(lean); ctx.translate(0, -hip - BODY_LIFT + by);
+    drawVanguardArm(T, 'L', -31, -302, B, lc);
+    // Ba tấm tản nhiệt xòe sau cổ và vai theo ảnh lưng.
+    poly([[-54, -330], [-60, -386], [-43, -414], [-20, -408], [-25, -349]], B.lo, F.line, 2);
+    poly([[-57, -385], [-43, -409], [-24, -405], [-33, -375], [-33, -344]], F.armor, F.line);
+    vanguardPanel([[-54, -383], [-42, -405], [-28, -402], [-36, -374], [-37, -351]], F, 0.37);
+    vanguardSeam([[-43, -403], [-43, -386], [-39, -371]], F.accent, 1.8);
+    poly([[-52, -338], [-86, -377], [-100, -373], [-88, -346], [-66, -320]], B.armor, F.line, 2);
+    poly([[-87, -372], [-98, -369], [-84, -348], [-65, -330], [-62, -338]], F.hi, F.line);
+    poly([[-35, -350], [-20, -398], [-7, -407], [0, -405], [-13, -381], [-13, -344]], F.lo, F.line);
+    vanguardSeam([[-19, -394], [-8, -403], [-1, -402]], steel, 1.5);
+    // Trục cơ khí và lò xo màu đồng nằm giữa các mảng giáp lưng.
+    poly([[-69, -325], [-51, -329], [-35, -302], [-40, -245], [-58, -230], [-73, -247]], B.frame, F.line);
+    for (let i = 0; i < 7; i++) {
+      const y = -309 + i * 10;
+      poly([[-64, y], [-49, y - 3], [-45, y + 4], [-60, y + 7]], B.frameHi, F.line, 0.7);
+      vanguardSeam([[-68, y + 1], [-60, y + 5]], '#9b926e', 2);
+    }
+    poly([[-75, -315], [-59, -326], [-49, -312], [-53, -284], [-66, -279], [-79, -292]], F.armor, F.line);
+    vanguardPanel([[-73, -311], [-60, -319], [-55, -309], [-59, -289], [-68, -286]], F, 0.17);
+    // Eo cơ khí gọn, ba vòng giáp bụng xếp chéo nối xuống hông.
+    poly([[-37, -236], [31, -238], [29, -162], [-27, -155], [-42, -186]], F.frame, F.line);
+    vanguardSeam([[-29, -230], [-33, -178]], steel, 4);
+    for (let i = 0; i < 4; i++) {
+      const y = -224 + i * 15;
+      poly([[-24, y], [24, y - 7], [32, y + 2], [25, y + 12], [-23, y + 15], [-32, y + 6]], vGrad(y - 7, y + 15, F.armor, F.lo, F.frame), F.line);
+      vanguardSeam([[-19, y + 2], [22, y - 4]], F.frameHi, 1.5);
+    }
+    // Ngực nở thành vòm ngang, các đường sườn hội tụ vào lò phản ứng.
+    poly([[-53, -317], [-30, -345], [5, -348], [43, -330], [68, -304], [73, -282], [51, -260], [13, -252], [-39, -266]], vGrad(-348, -252, F.hi, F.armor, F.lo), F.line, 2);
+    poly([[-27, -338], [7, -340], [43, -324], [65, -303], [67, -293], [29, -310], [-15, -319]], F.armor, F.line);
+    vanguardPanel([[-20, -332], [7, -335], [39, -321], [58, -305], [29, -315], [-13, -322]], F, 0.22);
+    vanguardSeam([[-16, -324], [21, -320], [52, -306], [65, -294]], steel, 1.5);
+    vanguardSeam([[-15, -294], [29, -279], [64, -286]], F.frame, 3);
+    // Thân ngực có chiều sâu: lưng tối, giáp cổ và ngực trước chia mặt vát.
+    poly([[-52, -306], [-38, -340], [-9, -351], [23, -337], [43, -304], [53, -269], [35, -231], [-10, -220], [-41, -238], [-57, -270]], vGrad(-351, -220, F.hi, F.armor, F.lo), F.line, 2);
+    poly([[-38, -340], [-9, -351], [23, -337], [39, -313], [11, -316], [-16, -329], [-43, -321]], F.armor, F.line);
+    poly([[-9, -351], [23, -337], [39, -313], [25, -317], [10, -335]], F.hi, F.line, 0.8);
+    poly([[-42, -315], [-12, -323], [18, -309], [38, -289], [33, -277], [-7, -284], [-44, -275]], F.lo, F.line);
+    for (let i = 0; i < 4; i++) vanguardSeam([[-28, -307 + i * 6], [9, -306 + i * 6]], F.frameHi, 2);
+    poly([[14, -310], [38, -305], [51, -278], [44, -260], [27, -271], [13, -289]], F.armor, F.line);
+    vanguardSeam([[22, -302], [37, -296], [44, -279]], steel, 1.2);
+    poly([[-44, -271], [-10, -278], [31, -256], [35, -231], [8, -220], [-30, -230], [-48, -250]], F.armor, F.line);
+    poly([[-43, -263], [-15, -268], [14, -251], [18, -241], [-16, -248]], F.hi, F.line, 0.8);
+    vanguardSeam([[-32, -248], [-13, -238], [18, -237]], F.accent, 2.5);
+    // Giáp bụng dọc che một phần ống xếp, vẫn để lộ eo cơ khí phía sau.
+    poly([[-4, -231], [17, -236], [28, -221], [22, -177], [12, -161], [0, -171]], F.armor, F.line);
+    poly([[3, -227], [11, -229], [15, -216], [12, -179], [7, -171]], F.hi, F.line, 0.8);
+    vanguardPanel([[15, -223], [23, -218], [18, -184], [14, -176]], F, 0.18);
+    // Lò cam tua-bin như ảnh mới; chuyển sang trắng nóng khi tung tuyệt chiêu.
+    // Giữ (29,-264) trùng điểm xuất phát chùm tia tối thượng.
+    ctx.save(); ctx.translate(29, -264); ctx.scale(0.76, 1);
+    drawVanguardJoint(0, 0, 28, F);
+    const boost = reactorBoost(T);
+    ctx.shadowColor = '#ff9b35'; ctx.shadowBlur = 10 + boost * 40;
+    ctx.fillStyle = '#913917'; ellipse(0, 0, 22, 22); ctx.fill();
+    ctx.strokeStyle = '#eaaa4a'; ctx.lineWidth = 2; ellipse(0, 0, 20, 20); ctx.stroke();
+    for (let i = 0; i < 12; i++) {
+      const a = i * PI2 / 12 + game.t * (boost ? 8 : 0.3);
+      ctx.save(); ctx.rotate(a);
+      poly([[4, -1], [10, -8], [19, -9], [20, -4], [13, -4], [6, 2]], i % 2 ? '#f4a33d' : '#cc6a22', '#ffc064', 0.6);
+      ctx.restore();
+    }
+    ctx.fillStyle = boost ? '#fff8db' : '#ffd77a'; ellipse(0, 0, 5 + boost * 2, 5 + boost * 2); ctx.fill();
+    ctx.restore();
+    // Cổ có piston, mũ giáp cong và kính vàng hẹp hướng về trước.
+    poly([[-13, -340], [-12, -360], [13, -359], [26, -337], [14, -329]], F.frameHi, F.line);
+    vanguardSeam([[-5, -354], [5, -337]], steel, 4);
+    poly([[-23, -361], [-23, -376], [-13, -390], [5, -396], [23, -390], [34, -379], [37, -366], [30, -349], [12, -341], [-3, -347]], vGrad(-396, -341, F.hi, F.armor, F.lo), F.line, 2);
+    poly([[-23, -376], [-13, -390], [5, -396], [23, -390], [30, -381], [8, -385], [-8, -381]], F.armor, F.line, 0.8);
+    vanguardSeam([[-14, -386], [4, -391], [19, -386]], steel, 1.5);
+    poly([[3, -380], [29, -379], [37, -370], [34, -358], [21, -355], [6, -362], [-1, -370]], F.frame, F.line);
+    ctx.save(); ctx.shadowColor = '#f5cf79'; ctx.shadowBlur = 4;
+    poly([[8, -373], [27, -373], [32, -368], [28, -365], [20, -363], [9, -367], [5, -370]], F.visor || '#f1d084');
+    ctx.restore();
+    vanguardSeam([[9, -373], [27, -372], [31, -368]], '#fff0ba', 1.5);
+    vanguardSeam([[18, -376], [17, -362]], F.frameHi, 1.4);
+    poly([[2, -361], [11, -353], [28, -352], [22, -342], [12, -339], [-2, -348]], F.armor, F.line);
+    for (let i = 0; i < 3; i++) vanguardSeam([[12, -350 + i * 3], [23, -351 + i * 3]], F.frame, 1.2);
+    drawVanguardJoint(-14, -365, 6, F);
+    poly([[0, -393], [4, -394], [9, -381], [5, -380]], F.accent, F.line, 0.7);
+    // Mặt nạ cơ khí và lưới tản nhiệt bên dưới kính.
+    poly([[10, -360], [17, -357], [21, -346], [16, -341], [8, -348]], F.frameHi, F.line);
+    for (let i = 0; i < 4; i++) vanguardSeam([[11 + i * 2, -354], [13 + i * 2, -346]], F.frame, 0.8);
+    // Vai gần rộng và nghiêng, phủ lên cánh tay nhưng không che đầu.
+    drawSlashTrail(T, -27, -304);
+    drawVanguardArm(T, 'R', -27, -304, F, lc);
+    // Vai dạng khiên: đỉnh gần ngang, cạnh dưới chéo và hai sọc sáng.
+    drawVanguardJoint(-54, -321, 16, F);
+    poly([[-67, -340], [-53, -355], [-15, -354], [8, -342], [16, -323], [5, -297], [-13, -278], [-57, -292], [-71, -314]], vGrad(-355, -278, F.hi, F.armor, F.lo), F.line, 2);
+    poly([[-67, -340], [-53, -355], [-15, -354], [8, -342], [9, -334], [-19, -343], [-51, -343], [-64, -329]], F.hi, F.line, 0.8);
+    poly([[-62, -331], [-51, -340], [-20, -339], [6, -330], [4, -311], [-16, -287], [-54, -299]], F.armor, F.line);
+    poly([[-65, -320], [-54, -299], [-16, -287], [4, -311], [5, -297], [-13, -278], [-57, -292], [-71, -314]], F.lo, F.line);
+    for (const x of [-47, -35]) poly([[x, -351], [x + 5, -351], [x + 9, -337], [x + 5, -303], [x, -297], [x - 1, -309], [x + 3, -337]], steel, F.line, 0.5);
+    vanguardPanel([[-60, -330], [-49, -337], [-22, -335], [-1, -327], [-3, -313], [-19, -292], [-52, -302]], F, 0.49);
+    vanguardSeam([[-61, -325], [-54, -303], [-16, -291], [0, -311]], steel, 1);
+    vanguardSeam([[-62, -316], [-57, -296], [-16, -283]], F.accent, 1.5);
+    ctx.save(); ctx.translate(-21, -307); ctx.rotate(0.14);
+    ctx.font = '900 18px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#acb8b8'; ctx.fillText('34', 0, 0); ctx.restore();
+    if (T.hp / T.maxHp < 0.7) vanguardSeam([[-16, -332], [-8, -319], [-14, -306]], F.frame, 2);
+    rainSheen(-43, 24, -335, -230, 0.13);
+    ctx.restore();
+  }
+
+  // TEMPEST: góc nghiêng theo striker-eureka.jpg ở root, vai vòm và đường viền vàng/xanh.
+  function drawTempestShoulder(x, y, P, side) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(side, 1);
+    poly([[-23, 10], [-30, -9], [-25, -32], [-11, -43], [16, -45], [35, -35], [44, -18], [41, 4], [27, 18], [3, 22]], P.armor, P.line, 2);
+    poly([[-25, -32], [-11, -43], [16, -45], [35, -35], [40, -23], [12, -31], [-10, -27]], P.accent, P.line);
+    poly([[-10, -27], [12, -31], [40, -23], [41, -3], [27, 18], [3, 22], [-15, 10]], P.hi, P.line);
+    poly([[24, -22], [40, -23], [41, -3], [27, 18], [15, 17]], P.armor);
+    ctx.strokeStyle = P.trim || P.lo; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-19, -25); ctx.lineTo(11, -35); ctx.lineTo(34, -29); ctx.stroke();
+    ctx.strokeStyle = P.line; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(5, -5); ctx.lineTo(26, 5); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTempestArm(T, side, sx, sy, P, lc) {
+    const p = armPose(T, side);
+    const k = ik(sx, sy, p.x, p.y, 83, 94, 1);
+    seg(sx, sy, k.jx, k.jy, (len) => {
+      poly([[-8, -16], [len + 4, -15], [len + 4, 17], [-8, 18]], P.frame, P.line);
+      poly([[3, -22], [len * 0.6, -24], [len - 5, -13], [len - 9, 14], [0, 15]], P.armor, P.line);
+      poly([[3, -22], [len * 0.6, -24], [len * 0.55, -14], [2, -12]], P.hi);
+      poly([[len * 0.48, -24], [len * 0.74, -20], [len * 0.78, 14], [len * 0.56, 17]], P.accent, P.line, 1);
+      ctx.strokeStyle = P.trim || P.lo; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(len * 0.56, -22); ctx.lineTo(len * 0.63, 14); ctx.stroke();
+      ctx.fillStyle = P.hi; ctx.fillRect(12, 14, Math.max(1, len - 30), 3);
+    });
+    drawJointDisc(k.jx, k.jy, 15, P);
+    seg(k.jx, k.jy, k.ex, k.ey, (len) => {
+      poly([[-10, -16], [len + 9, -15], [len + 12, 17], [-4, 19]], P.frame, P.line);
+      // Cẳng tay hình khiên lớn, hai vây ngắn phía sau và ổ trục tròn xanh lam.
+      for (let i = 0; i < 2; i++) {
+        const x = 13 + i * 27;
+        poly([[x, 12], [x + 10, 35], [x + 22, 36], [x + 25, 17]], P.armor, P.line);
+        poly([[x + 7, 27], [x + 10, 35], [x + 22, 36], [x + 23, 29]], P.accent);
+      }
+      poly([[-5, -21], [25, -31], [len - 18, -25], [len + 4, -8], [len - 5, 23], [len * 0.45, 30], [4, 17]], P.armor, P.line, 2);
+      poly([[-5, -21], [25, -31], [len - 18, -25], [len - 25, -16], [22, -19]], P.hi, P.line, 1);
+      ctx.fillStyle = P.trim || P.lo; ellipse(len * 0.44, -1, 17, 17); ctx.fill();
+      ctx.strokeStyle = P.hi; ctx.lineWidth = 2; ellipse(len * 0.44, -1, 12, 12); ctx.stroke();
+      ctx.fillStyle = P.accent; ellipse(len * 0.44, -1, 9, 9); ctx.fill();
+      ctx.strokeStyle = P.frame; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(len * 0.44 - 1, -8); ctx.lineTo(len * 0.44 - 1, 6); ctx.stroke();
+      poly([[len - 8, -16], [len + 25, -15], [len + 32, -3], [len + 24, 18], [len - 7, 17]], P.frame, P.line);
+      for (let i = 0; i < 3; i++) poly([[len + 12, -12 + i * 10], [len + 26, -10 + i * 10], [len + 23, -4 + i * 10], [len + 10, -5 + i * 10]], P.lo, P.line, 1);
+      drawWristBlade(p, len, P);
+    });
+  }
+
+  function drawTempestBody(T, F, B, lc, by, hip, lean, s1, s2, lift1, lift2, crouch, spreadFeet) {
+    drawTitanLeg(-22, hip + 6, -28 - 44 * spreadFeet + s2 * (T.moving ? 24 : 0) - crouch * 0.5, -lift2 * 22, B, lift2);
+    ctx.save();
+    ctx.translate(0, hip); ctx.rotate(lean); ctx.translate(0, -hip - BODY_LIFT);
+    drawTempestArm(T, 'L', -30, -292 + by, B, lc);
+    drawTempestShoulder(-34, -301 + by, B, -1);
+    ctx.restore();
+    drawTitanLeg(22, hip + 6, 31 + 50 * spreadFeet + s1 * (T.moving ? 24 : 0) + crouch * 0.6, -lift1 * 22, F, lift1);
+    // Hông hẹp với giáp nhọn, tương phản với hai vai rộng.
+    poly([[-43, hip - 19], [35, hip - 19], [44, hip + 7], [14, hip + 27], [-37, hip + 18]], F.frame, F.line);
+    poly([[-42, hip - 15], [-8, hip - 19], [-12, hip + 16], [-34, hip + 23], [-46, hip + 6]], B.armor, B.line);
+    poly([[0, hip - 19], [36, hip - 15], [45, hip + 5], [19, hip + 23], [3, hip + 11]], F.armor, F.line);
+    poly([[-6, hip - 12], [11, hip - 11], [17, hip + 11], [4, hip + 27], [-9, hip + 8]], F.lo, F.line);
+    ctx.save();
+    ctx.translate(0, hip); ctx.rotate(lean); ctx.translate(0, -hip - BODY_LIFT + by);
+    // Vây lưng dạng lưỡi nhọn sau hai vai.
+    poly([[-62, -271], [-77, -337], [-70, -397], [-44, -415], [-43, -352], [-27, -301]], B.armor, B.line, 2);
+    poly([[-70, -397], [-44, -415], [-43, -401], [-63, -385]], B.hi, B.line, 1);
+    poly([[-74, -321], [-90, -309], [-82, -269], [-55, -257]], B.armor, B.line);
+    poly([[-74, -266], [-81, -208], [-66, -196], [-50, -257]], B.lo, B.line);
+    ctx.strokeStyle = B.line; ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath(); ctx.moveTo(-64, -384 + i * 12); ctx.lineTo(-49, -392 + i * 12); ctx.stroke();
+    }
+    poly([[-34, -232], [37, -232], [28, -166], [-25, -166]], F.frame, F.line);
+    // Bụng cơ khí chia đốt hình chữ V.
+    for (let i = 0; i < 4; i++) {
+      const y = -221 + i * 13;
+      const w = 31 - i * 2;
+      poly([[-w, y], [0, y + 5], [w, y - 1], [w - 2, y + 8], [0, y + 14], [-w + 2, y + 8]], i % 2 ? F.lo : F.frameHi, F.line, 1);
+    }
+    // Giáp ngực rộng hình tam giác, không có lò phản ứng tròn.
+    poly([[-46, -310], [-23, -330], [21, -328], [54, -301], [68, -268], [50, -237], [18, -216], [-30, -231], [-48, -269]], F.armor, F.line, 2);
+    poly([[-23, -330], [21, -328], [54, -301], [61, -281], [26, -288], [-25, -305]], F.hi, F.line);
+    poly([[26, -288], [61, -281], [68, -268], [50, -237], [18, -216], [23, -247]], F.lo, F.line);
+    poly([[-48, -269], [-22, -277], [-10, -237], [18, -216], [-30, -231]], F.lo, F.line);
+    ctx.strokeStyle = F.trim; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-21, -308); ctx.lineTo(23, -294); ctx.lineTo(57, -280); ctx.stroke();
+    poly([[-17, -323], [8, -326], [22, -303], [12, -291], [-16, -293], [-26, -306]], F.frame, F.line);
+    ctx.fillStyle = F.accent;
+    ctx.fillRect(-12, -309, 23, 3);
+    // Sáu tên lửa vẫn thẳng với tọa độ phóng trong logic hiện tại.
+    drawChestLauncher(T, 0, F, lc);
+    // Đèn đỏ nằm dọc mép ngực vát như ảnh tham chiếu, không che các ống phóng.
+    poly([[39, -282], [54, -275], [51, -251], [37, -242]], F.frame, F.line);
+    ctx.fillStyle = '#dc4849';
+    for (let i = 0; i < 4; i++) {
+      poly([[40, -275 + i * 6], [48, -273 + i * 6], [47, -270 + i * 6], [40, -271 + i * 6]], '#dc4849');
+    }
+    // Cổ giáp cao bao hai bên đầu nhỏ.
+    poly([[-38, -316], [-35, -346], [-22, -352], [-13, -328], [0, -318]], F.armor, F.line);
+    poly([[27, -327], [40, -352], [48, -344], [50, -317], [33, -307]], F.lo, F.line);
+    drawSensorHead(-340, F, lc);
+    // Ký hiệu nhỏ trên ngực.
+    ctx.save(); ctx.translate(-43, -294); ctx.rotate(-0.12);
+    ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = F.frame; ctx.fillText('STRIKER', 0, 0); ctx.fillText('E-01', 0, 10); ctx.restore();
+    drawSlashTrail(T, -18, -291);
+    drawTempestArm(T, 'R', -18, -291, F, lc);
+    drawTempestShoulder(-21, -303, F, 1);
+    if (T.hp / T.maxHp < 0.7) {
+      ctx.strokeStyle = F.frame; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-53, -312); ctx.lineTo(-43, -294); ctx.lineTo(-49, -281); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function drawTitanArm(T, side, sx, sy, P, lc) {
     const p = armPose(T, side);
     if (p.charging) p.ch = T.charge;
@@ -2679,22 +3096,14 @@
     const base = len * 0.2;
     const L = len * 0.85 + 95 * ext;
     const yOff = -30 + 16 * ext; // bật từ mép giáp ra thẳng trục cẳng tay
-    ctx.save();
-    // chân lưỡi
-    rr(base - 4, yOff - 4, 26, 10, 3);
-    ctx.fillStyle = P.frame;
-    ctx.fill();
-    // lưỡi: sống dày, lưỡi vát, mũi nhọn
-    poly([[base, yOff - 3], [base + L - 26, yOff - 7], [base + L, yOff + 1], [base + L - 26, yOff + 6], [base, yOff + 5]], vGrad(yOff - 7, yOff + 6, '#f4f7fa', '#b9c3cd', '#6b7682'), P.line);
-    ctx.strokeStyle = ext > 0.5 ? 'rgba(160,255,215,0.9)' : 'rgba(255,255,255,0.6)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(base + 6, yOff - 3);
-    ctx.lineTo(base + L - 6, yOff - 1);
-    ctx.stroke();
-    ctx.fillStyle = P.accent;
-    ctx.fillRect(base + 4, yOff - 1, 10, 3);
-    ctx.restore();
+    // Hai lưỡi song song, sống tối và lưỡi vát bạc theo ảnh Striker Eureka.
+    for (const dy of [-8, 8]) {
+      const tip = base + L - (dy > 0 ? 12 : 0);
+      poly([[base, yOff + dy - 3], [tip - 28, yOff + dy - 7], [tip + 18, yOff + dy], [tip - 22, yOff + dy + 6], [base, yOff + dy + 5]], P.lo, P.line);
+      poly([[base + 7, yOff + dy - 1], [tip - 27, yOff + dy - 4], [tip + 18, yOff + dy], [tip - 22, yOff + dy + 2]], P.hi);
+      ctx.fillStyle = P.accent;
+      ctx.fillRect(base + 8, yOff + dy, 20, 3);
+    }
   }
 
   function drawSlashTrail(T, sx, sy) {
@@ -2727,6 +3136,84 @@
     ctx.beginPath();
     ctx.arc(sx, sy, 330, -1.45, 0.25);
     ctx.stroke();
+    ctx.restore();
+  }
+
+  // VANGUARD theo plasma.jpeg: giáp mở hai bên, cáp lộ ra, ngón tay tách quanh họng.
+  function drawVanguardPlasma(p, len, P) {
+    const a = p.a;
+    const deploy = p.ch
+      ? easeOut(clamp(p.ch.t / 0.2, 0, 1))
+      : 1 - easeInOut(clamp((a.t - a.windup - a.m.active) / a.m.recover, 0, 1));
+    const charge = clamp(p.ch ? p.ch.level : a.level || 0, 0, 1);
+    const firing = !!a && a.t >= a.windup && a.t < a.windup + a.m.active + 0.06;
+    const steel = P.steel || P.hi;
+    const muzzle = len + 24;
+    // Khung cẳng tay giữ nguyên độ dài, không mọc thêm một nòng súng dài.
+    poly([[-8, -17], [len - 7, -20], [len + 24, -12], [len + 26, 13], [len - 7, 23], [-7, 18]], P.frame, P.line, 2);
+    poly([[3, -17], [24, -24], [42, -20], [43, 18], [23, 24], [0, 16]], P.armor, P.line);
+    poly([[9, -18], [24, -24], [40, -20], [37, -14], [18, -11]], P.hi, P.line, 0.7);
+    // Ba ray dọc và bó cáp uốn thành nhánh trước vòng tụ plasma.
+    for (let i = 0; i < 3; i++) {
+      const y = -11 + i * 11;
+      poly([[32, y - 3], [len - 10, y - 3], [len + 6, y], [len - 10, y + 3], [32, y + 3]], P.frameHi, P.line, 0.8);
+      vanguardSeam([[35, y - 1], [len - 14, y - 1], [len + 3, y + 1]], steel, 1);
+    }
+    for (let i = 0; i < 5; i++) {
+      const y = -14 + i * 7;
+      const points = [[38, y], [58, y - 3], [76, y + (i % 2 ? 4 : -5)], [len - 34, y * 0.8], [len - 8, y * 0.65]];
+      vanguardSeam(points, P.frame, 4);
+      vanguardSeam(points, i % 2 ? steel : P.frameHi, 1.5);
+    }
+    // Hai nắp giáp lớn có bản lề, mở lên trên và xuống dưới cẳng tay.
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.scale(1, side);
+      const gap = 15 * deploy;
+      poly([[22, 18], [36, 18 + gap], [len - 26, 25 + gap], [len - 5, 18], [len - 16, 9], [42, 9]], P.frameHi, P.line);
+      for (const x of [40, len - 32]) {
+        vanguardSeam([[x, 11], [x + 6, 21 + gap]], steel, 3);
+        drawVanguardJoint(x + 6, 21 + gap, 4, P);
+      }
+      const plate = [[15, 22 + gap], [34, 33 + gap], [len - 30, 35 + gap], [len - 7, 25 + gap], [len - 19, 16 + gap], [39, 15 + gap]];
+      poly(plate, vGrad(15 + gap, 35 + gap, P.hi, P.armor, P.lo), P.line, 2);
+      poly([[34, 33 + gap], [len - 30, 35 + gap], [len - 7, 25 + gap], [len - 16, 36 + gap], [len - 32, 44 + gap], [36, 41 + gap]], P.lo, P.line);
+      vanguardSeam([[23, 25 + gap], [42, 21 + gap], [len - 23, 22 + gap]], steel, 1.2);
+      vanguardPanel(plate, P, side < 0 ? 0.18 : 0.56);
+      // Ngàm/ngón tay mở ra phía trước, có bản lề và hai đốt rõ ràng.
+      const spread = 13 * deploy;
+      poly([[len - 22, 13], [len - 5, 17 + spread], [len + 24, 25 + spread], [len + 47, 20 + spread], [len + 51, 12 + spread], [len + 27, 17 + spread], [len + 2, 9 + spread], [len - 18, 6]], P.armor, P.line, 1.5);
+      vanguardSeam([[len - 7, 16 + spread], [len + 24, 22 + spread], [len + 44, 17 + spread]], steel, 1.4);
+      drawVanguardJoint(len - 8, 12 + spread, 6, P);
+      drawVanguardJoint(len + 25, 21 + spread, 4, P);
+      // Cụm ngón phía sau gập ra ngoài, để lộ khoảng rỗng trong lòng bàn tay.
+      poly([[len - 29, 26 + gap], [len - 23, 44 + gap], [len - 4, 49 + gap], [len + 10, 42 + gap], [len + 9, 28 + gap], [len - 1, 24 + gap]], P.lo, P.line);
+      poly([[len - 19, 30 + gap], [len - 15, 40 + gap], [len - 5, 42 + gap], [len + 3, 37 + gap], [len + 2, 29 + gap]], P.frame, steel, 0.7);
+      ctx.restore();
+    }
+    // Vòng cổ ngắn, họng elip nhìn nghiêng và thấu kính trắng ở tâm.
+    poly([[len - 10, -18], [muzzle, -19], [muzzle + 3, 18], [len - 10, 20]], P.lo, P.line);
+    vanguardSeam([[len - 5, -17], [len - 5, 18]], steel, 3);
+    ctx.fillStyle = P.frame; ellipse(muzzle, 0, 11, 22); ctx.fill();
+    ctx.strokeStyle = steel; ctx.lineWidth = 3; ellipse(muzzle + 1, 0, 9, 19); ctx.stroke();
+    ctx.save();
+    ctx.shadowColor = '#429dff'; ctx.shadowBlur = 12 + charge * 18;
+    ctx.fillStyle = '#1956ad'; ellipse(muzzle + 3, 0, 8, 17); ctx.fill();
+    ctx.strokeStyle = '#65c8ff'; ctx.lineWidth = 2; ellipse(muzzle + 4, 0, 6, 14); ctx.stroke();
+    ctx.fillStyle = '#e6faff'; ellipse(muzzle + 5, 0, 4 + charge * 2, 10 + charge * 3); ctx.fill();
+    // Hồ quang xanh không đều giữa các ngàm, sáng mạnh khi nạp đầy.
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 5; i++) {
+      const angle = game.t * 7 + i * PI2 / 5;
+      const reach = 19 + charge * 20 + (firing ? 12 : 0);
+      const y = Math.sin(angle) * reach;
+      const x = muzzle + Math.cos(angle) * reach * 0.6;
+      vanguardSeam([[muzzle + 4, 0], [muzzle + 7 + Math.sin(game.t * 28 + i) * 6, y * 0.35], [x - 5, y * 0.65], [x + 3, y]], i % 2 ? '#89d4ff' : '#397aff', 1.2 + charge);
+    }
+    if (firing) {
+      const g = ctx.createRadialGradient(muzzle + 8, 0, 1, muzzle + 8, 0, 54);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.25, '#afddff'); g.addColorStop(1, 'rgba(40,100,255,0)');
+      ctx.fillStyle = g; ellipse(muzzle + 8, 0, 54, 42); ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -2910,55 +3397,24 @@
     drawJointDisc(k.ex, k.ey, 16, P);
   }
 
-  // TEMPEST: đầu cảm biến — khối đầu thấp, vây chắn hai bên, một mắt tròn lớn có ống kính xoay.
+  // TEMPEST / Striker Eureka: đầu nhỏ thấp giữa cổ giáp, kính đen hẹp, không mắt tròn.
   function drawSensorHead(hy, F, lc) {
     ctx.save();
-    ctx.translate(-8, 0);
-    ctx.scale(1.15, 1.15);
-    ctx.translate(0, -hy * (1 - 1 / 1.15));
-    // khối đầu
-    poly([[-18, hy - 12], [-6, hy - 26], [30, hy - 28], [46, hy - 14], [44, hy + 8], [24, hy + 14], [-14, hy + 12]], vGrad(hy - 28, hy + 14, F.hi, F.armor, F.lo), F.line);
-    // vây chắn sau đầu + ăng-ten ngắn
-    poly([[-18, hy - 12], [-36, hy - 8], [-30, hy + 8], [-14, hy + 10]], F.lo, F.line);
-    ctx.strokeStyle = F.frameHi;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(4, hy - 26);
-    ctx.lineTo(-6, hy - 44);
-    ctx.stroke();
-    ctx.fillStyle = F.accent;
-    ellipse(-6, hy - 45, 3, 3);
-    ctx.fill();
-    // mắt tròn
-    ellipse(28, hy - 6, 13, 13);
+    ctx.translate(7, hy + 4);
+    // Gáy vát và hai má giáp ôm sát đầu.
+    poly([[-29, -12], [-21, -30], [-5, -36], [20, -31], [32, -18], [34, 0], [21, 13], [-12, 12], [-25, 2]], F.armor, F.line);
+    poly([[-21, -30], [-5, -36], [20, -31], [29, -21], [4, -24], [-14, -21]], F.hi, F.line, 1);
+    poly([[-29, -12], [-14, -21], [-12, 6], [-22, 5]], F.lo, F.line);
+    poly([[-9, -17], [27, -17], [32, -8], [22, -2], [-9, -5]], F.frame, F.line);
+    // Hai khe mắt rất hẹp, ngăn nhau bởi sống mũi bọc giáp.
+    ctx.fillStyle = '#a8c9c6';
+    ctx.fillRect(-4, -12, 12, 2);
+    ctx.fillRect(15, -11, 11, 2);
+    poly([[9, -18], [14, -17], [17, 0], [10, 5], [5, 0]], F.hi, F.line, 1);
+    poly([[-9, -3], [6, 3], [21, 0], [24, 8], [14, 14], [-4, 10]], F.lo, F.line);
     ctx.fillStyle = F.frame;
-    ctx.fill();
-    ctx.save();
-    ctx.shadowColor = lc;
-    ctx.shadowBlur = 22;
-    ellipse(30, hy - 6, 8, 8);
-    ctx.fillStyle = lc;
-    ctx.fill();
-    ctx.restore();
-    ctx.save();
-    ctx.translate(30, hy - 6);
-    ctx.rotate(game.t * 3);
-    ctx.strokeStyle = 'rgba(10,30,30,0.6)';
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < 3; i++) {
-      ctx.rotate(PI2 / 3);
-      ctx.beginPath();
-      ctx.moveTo(2, 0);
-      ctx.lineTo(7, 0);
-      ctx.stroke();
-    }
-    ctx.restore();
-    ctx.fillStyle = '#ffffff';
-    ellipse(32, hy - 8, 2, 2);
-    ctx.fill();
-    // hàm dưới
-    ctx.fillStyle = F.frame;
-    ctx.fillRect(10, hy + 8, 28, 3);
+    for (let i = 0; i < 3; i++) ctx.fillRect(0, 4 + i * 3, 11, 1);
+    poly([[25, -20], [34, -14], [36, 1], [27, 9], [24, 0]], F.armor, F.line);
     ctx.restore();
   }
 
@@ -3108,6 +3564,15 @@
     }
   }
 
+  // Cùng chiều cao đầu–chân; chỉ scale đồng nhất X/Y, không bóp riêng thân hay chân.
+  function titanDrawScale(T) {
+    return TITAN_SCALE * (372 + BODY_LIFT) / (T.def.model.crown + T.def.model.sole);
+  }
+
+  function titanSpecLabel(def) {
+    return `${def.heightM} m · ${def.massTonnes.toLocaleString('vi-VN')} tấn`;
+  }
+
   function drawTitan(T) {
     if (!T) return;
     const ja = T.arms.R;
@@ -3188,7 +3653,9 @@
     ellipse(0, 2, 105 * TITAN_SCALE * (1 - T.airY / 400), 11);
     ctx.fill();
     ctx.translate(0, -T.airY);
-    ctx.scale(T.facing * TITAN_SCALE * spin, TITAN_SCALE);
+    const modelScale = titanDrawScale(T);
+    ctx.scale(T.facing * modelScale * spin, modelScale);
+    ctx.translate(0, -T.def.model.sole);
     if (T.inv > 0) ctx.globalAlpha = 0.6 + 0.3 * Math.sin(game.t * 60);
 
     // thruster phụt lửa xuống khi bật nhảy ăn mừng
@@ -3236,6 +3703,17 @@
     // Toàn thân xoay nhẹ quanh hông theo độ ngả người.
     const lean = titanLean(T);
     const hip = -158 - BODY_LIFT + by;
+
+    if (T.def.id === 'vanguard') {
+      drawVanguardBody(T, F, B, lc, by, hip, lean, s1, s2, lift1, lift2, crouch, spreadFeet);
+      ctx.restore();
+      return;
+    }
+    if (T.def.id === 'tempest') {
+      drawTempestBody(T, F, B, lc, by, hip, lean, s1, s2, lift1, lift2, crouch, spreadFeet);
+      ctx.restore();
+      return;
+    }
 
     // chân sau + tay sau (trong bóng tối)
     drawTitanLeg(-26, hip + 6, -34 - 44 * spreadFeet + s2 * (T.moving ? 24 : 0) - crouch * 0.5, -lift2 * 22, B, lift2);
@@ -3913,8 +4391,9 @@
     const T = game.titan;
     const k = Math.min(1, B.t / 0.15) * Math.min(1, (B.dur - B.t) / 0.25);
     // tia phóng ra từ lò phản ứng trên ngực
-    const x0 = T.x - game.cam + T.facing * 5 * TITAN_SCALE;
-    const y0 = GROUND - (264 + BODY_LIFT) * TITAN_SCALE - T.airY;
+    const scale = titanDrawScale(T);
+    const x0 = T.x - game.cam + T.facing * (T.def.id === 'vanguard' ? 29 : 5) * scale;
+    const y0 = GROUND - (264 + BODY_LIFT + T.def.model.sole) * scale - T.airY;
     const len = 1700 * T.facing;
     const wob = Math.sin(game.t * 60) * 6;
     ctx.save();
@@ -4313,7 +4792,8 @@
           ctx.fill();
         }
       });
-      text(`HP ${def.hp} · TỐC ĐỘ ${def.speed}`, tx, top + 312, { size: 12, weight: 500, color: '#cfe0f0' });
+      text(titanSpecLabel(def), tx, top + 300, { size: 13, weight: 700, color: '#efe3cc' });
+      text(`HP ${def.hp} · TỐC ĐỘ ${def.speed}`, tx, top + 318, { size: 12, weight: 500, color: '#cfe0f0' });
       // mô tả + vũ khí
       wrapText(def.desc, x + 20, top + 346, cw - 40, 19, { size: 14, weight: 500, color: '#cfe0f0' });
       text('VŨ KHÍ', x + 20, top + 404, { size: 12, color: '#7f9bb8' });
@@ -4457,6 +4937,108 @@
         drawWin();
         break;
     }
+  }
+
+  // Trang mẫu dùng chính bộ vẽ/IK của game, không chạy AI, nhạc hay vòng lặp chiến đấu.
+  if (titanGallery) {
+    const clips = ['idle', 'walk', 'guard', 'dash', 'jab', 'hook', 'blade', 'cannon', 'special', 'ultimate', 'celebrate', 'stagger'];
+    window.TitanGallery = {
+      clips,
+      specs: Object.fromEntries(TITANS.map(def => [def.id, {
+        heightM: def.heightM, massTonnes: def.massTonnes, label: titanSpecLabel(def),
+        scale: titanDrawScale({ def }), crown: def.model.crown, sole: def.model.sole,
+      }])),
+      draw(target, id, clip, time, facing = 1, zoom = 1) {
+        const saved = { ctx, t: game.t, cam: game.cam, titan: game.titan, kaiju: game.kaiju };
+        const T = makeTitan(TITANS.find(d => d.id === id) || TITANS[0]);
+        const def = T.def;
+        const t = Math.max(0, time);
+        T.x = 0; T.facing = facing; T.link = 60;
+        game.t = t; game.cam = 0; game.titan = T; game.kaiju = null;
+        ctx = target.getContext('2d');
+        const attack = (name, at, level = 1) => {
+          const m = tmove(T, name);
+          T.arms[m.arm] = { name, t: at, windup: m.windup, m, level };
+        };
+        try {
+          if (clip === 'walk') { T.moving = true; T.walkT = t; T.vx = 160 * facing; }
+          if (clip === 'guard') T.guard = true;
+          if (clip === 'dash') { T.dashT = 0.3; T.vx = 500 * facing; T.moving = true; T.walkT = t * 2; }
+          if (['jab', 'hook', 'blade'].includes(clip)) {
+            const m = tmove(T, clip); const duration = m.windup + m.active + m.recover;
+            const phase = t % (duration + 0.7);
+            if (phase < duration) attack(clip, phase);
+          }
+          if (clip === 'cannon') {
+            const duration = def.missiles ? MISSILE_CHARGE : CHARGE_TIME;
+            const phase = t % (duration + 1.3);
+            if (phase < duration) T.charge = { t: phase, level: Math.min(1, phase / duration) };
+            else if (phase < duration + 0.5) {
+              attack('cannon', phase - duration); T.muzzle = 0.1;
+            }
+          }
+          if (clip === 'special') {
+            const phase = t % 3.1;
+            const m = tmove(T, 'jet');
+            if (phase < m.windup) attack('jet', phase);
+            else if (def.special === 'leap' && phase < m.windup + LEAP.up + LEAP.smash + LEAP.fall) {
+              const lt = phase - m.windup;
+              T.leap = { t: lt }; T.airY = Math.sin(lt / (LEAP.up + LEAP.smash + LEAP.fall) * Math.PI) * 160;
+            } else if (def.special !== 'leap' && phase < m.windup + m.active + m.recover) attack('jet', phase);
+          }
+          if (clip === 'ultimate') { T.beaming = true; T.link = 100; }
+          if (clip === 'celebrate') {
+            T.celebrate = { t: t % 3 };
+            const phase = celebratePhase(T.celebrate);
+            if (phase.name === 'jump') T.airY = Math.sin(phase.k * Math.PI) * 170;
+          }
+          if (clip === 'stagger') { T.stagger = 0.3; T.hitFlash = Math.sin(t * 8) > 0.8 ? 0.1 : 0; }
+          ctx.save();
+          ctx.clearRect(0, 0, target.width, target.height);
+          const scale = Math.min(target.width / 760, target.height / 540) * zoom;
+          ctx.translate(target.width * 0.46, target.height * 0.9);
+          ctx.scale(scale, scale);
+          // Đưa gốc mặt đất của game tới đường nền trong khung xem.
+          ctx.translate(0, -GROUND);
+          drawTitan(T);
+          // Effets des armes isolés pour lire clairement chaque animation.
+          const phase = t % ((def.missiles ? MISSILE_CHARGE : CHARGE_TIME) + 1.3);
+          if (clip === 'cannon' && phase > (def.missiles ? MISSILE_CHARGE : CHARGE_TIME)) {
+            ctx.save(); ctx.translate(0, GROUND); ctx.scale(facing, 1);
+            if (def.missiles) {
+              for (let i = 0; i < 6; i++) {
+                const d = (phase - MISSILE_CHARGE) * 430 + i * 21;
+                const y = -210 - (i % 2) * 14 - d * 0.22;
+                poly([[30 + d, y - 4], [50 + d, y - 4], [57 + d, y], [50 + d, y + 4], [30 + d, y + 4]], '#d9dee4');
+                poly([[30 + d, y - 3], [13 + d, y], [30 + d, y + 3]], '#eba96b');
+              }
+            } else {
+              ctx.fillStyle = '#7ff6ff'; ellipse(160 + (phase - CHARGE_TIME) * 460, -206, 19, 14); ctx.fill();
+            }
+            ctx.restore();
+          }
+          if (clip === 'ultimate') {
+            ctx.save(); ctx.translate(0, GROUND);
+            if (def.ult === 'reactor') {
+              ctx.fillStyle = '#7ff6ff'; ctx.fillRect(facing > 0 ? 17 : -380, -218, 363, 15);
+              ctx.fillStyle = '#ffffff'; ctx.fillRect(facing > 0 ? 17 : -380, -213, 363, 5);
+            } else {
+              for (let i = 0; i < 4; i++) {
+                const x = facing * (140 + i * 65); const y = -370 + ((t * 220 + i * 80) % 365);
+                poly([[x - 4, y - 35], [x + 4, y - 35], [x + 4, y - 4], [x, y + 4], [x - 4, y - 4]], '#d7d8cf');
+                poly([[x - 3, y - 35], [x, y - 65], [x + 3, y - 35]], '#eba96b');
+              }
+            }
+            ctx.restore();
+          }
+          ctx.restore();
+        } finally {
+          ctx = saved.ctx; game.t = saved.t; game.cam = saved.cam; game.titan = saved.titan; game.kaiju = saved.kaiju;
+          fx.particles.length = 0; fx.shake = 0;
+        }
+      },
+    };
+    return;
   }
 
   // ============================================================ VÒNG LẶP

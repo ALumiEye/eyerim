@@ -38,9 +38,26 @@ Chơi một mình: tay trái dùng `A S D W F`, tay phải dùng `J K L`.
 
 Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp II, thêm phun axit và lao húc) và **Leviathrax** (Cấp III, thêm tiếng gầm hút Link). Khi máu xuống dưới 50%, quái vật vào trạng thái *cuồng nộ* và đánh nhanh hơn.
 
+## Thông số kỹ thuật Titan
+
+Thông số hư cấu của EyeRim, không phải số liệu chính thức của nhân vật trong phim.
+
+| Titan | Chiều cao | Khối lượng chiến đấu | Đặc điểm |
+|---|---:|---:|---|
+| Vanguard | 80 m | 2.400 tấn | Giáp nặng, lò phản ứng ngực, pháo plasma biến hình |
+| Tempest | 80 m | 1.850 tấn | Khung nhẹ cơ động, lưỡi kép, bệ phóng tên lửa |
+
+Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, không tính vây lưng. Bộ vẽ thu/phóng đồng nhất cả hai trục để hai Titan cao bằng nhau mà không đổi tỷ lệ đầu, thân hay tay chân. Thông số xuất hiện trên thẻ chọn Titan và trang xem mẫu; không thay đổi HP, tốc độ hay sát thương.
+
 ## Nhạc riêng
 
 Đặt file nhạc của bạn vào `music/theme.mp3` (hoặc kéo thả file vào cửa sổ game) để thay nhạc nền tổng hợp. Xem `music/README.md`.
+
+## Xem mẫu Titan
+
+Mở trực tiếp `titans/vanguard.html` hoặc `titans/tempest.html` trong trình duyệt. Mỗi trang có hai hướng nhìn ngang và 12 động tác/chiêu thức, nút phát/dừng, đổi hướng, tốc độ, phóng to và thanh tua thời điểm. Không cần server hay cài thư viện.
+
+Các trang dùng chung hàm vẽ và IK trong `src/game.js`, nên chỉnh nhân vật sẽ cập nhật cả game lẫn trang mẫu. Hiệu ứng đạn/tên lửa trên trang mẫu là minh họa chuyển động, không mô phỏng sát thương hay AI. Tempest bám ảnh `../striker-eureka.jpg`; Vanguard phối hợp ba ảnh ở thư mục gốc: `../gipsy danger.jpeg` (ngang), `../front gipsy.jpg` (trước) và `../back gipsy.webp` (sau).
 
 ## Cấu trúc
 
@@ -48,6 +65,8 @@ Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp I
 index.html      trang chứa canvas
 style.css       căn giữa và co giãn canvas
 src/game.js     toàn bộ game: logic, AI, đồ họa vẽ bằng code, âm thanh WebAudio
+titans/        mỗi Titan một HTML xem mẫu, dùng chung gallery.css và gallery.js
+test/gallery.js kiểm tra mọi động tác/hướng của các trang mẫu
 test/smoke.js   bot tự chơi hết chiến dịch trong Node với canvas giả
 ```
 
@@ -55,4 +74,5 @@ test/smoke.js   bot tự chơi hết chiến dịch trong Node với canvas gi�
 
 ```
 node test/smoke.js
+node test/gallery.js
 ```
