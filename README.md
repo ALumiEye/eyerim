@@ -4,10 +4,16 @@ Game hành động 2D chạy trên trình duyệt thuộc hệ dự án alumieye
 
 > Năm 2049, các khe nứt dưới đáy Thái Bình Dương thả ra quái vật Abyssal. Hãy giữ vững bờ biển.
 
+| | |
+|---|---|
+| **Chơi ngay trên trình duyệt** | https://alumieye.github.io/eyerim/ |
+| **Tải game (chơi offline, 1 file)** | https://github.com/ALumiEye/eyerim/releases/latest/download/eyerim.html |
+| Các bản phát hành | https://github.com/ALumiEye/eyerim/releases |
+
 ## Chơi
 
 - **Trên trình duyệt:** https://alumieye.github.io/eyerim/
-- **Offline, không cần cài:** tải `eyerim.html` ở [bản phát hành mới nhất](https://github.com/ALumiEye/eyerim/releases/latest) rồi bấm đúp để mở. Cả game và nhạc nằm trong một file.
+- **Offline, không cần cài:** [tải `eyerim.html`](https://github.com/ALumiEye/eyerim/releases/latest/download/eyerim.html) (bản phát hành mới nhất) rồi bấm đúp để mở. Cả game và nhạc nằm trong một file.
 - **Từ mã nguồn:** mở `index.html` bằng trình duyệt. Không cần server hay thư viện ngoài để chơi.
 
 Phiên bản đang chạy hiện ở cạnh dưới khung màn hình (tag Release, hoặc `main · <commit>` trên Pages).
