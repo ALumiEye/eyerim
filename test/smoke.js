@@ -74,6 +74,12 @@ function step(frames = 1) {
     rafCb(now);
   }
 }
+// Phim xuất kích sau khi chọn Titan / giữa các đợt: bỏ qua bằng ENTER.
+function skipDeploy(label = '') {
+  if (game.state !== 'deploy') { console.error('FAIL: không vào phim xuất kích', label, game.state); process.exit(1); }
+  step(25);
+  fire('keydown', 'Enter'); step(1); fire('keyup', 'Enter');
+}
 function assert(cond, msg) {
   if (!cond) { console.error('FAIL:', msg); process.exit(1); }
   console.log('ok  -', msg);
@@ -85,7 +91,18 @@ press('Enter'); step(1); release('Enter');
 assert(game.state === 'select', 'ENTER mở màn hình chọn Titan');
 step(20);
 press('Enter'); step(1); release('Enter');
-assert(game.state === 'fight' && game.wave === 0 && game.titan.def.id === 'vanguard', 'chọn VANGUARD, bắt đầu đợt 1');
+assert(game.state === 'deploy' && game.deploy.full && game.deploy.t === 0, 'chọn Titan → phim xuất kích đầy đủ (giáp, buồng lái, máy bay)');
+{
+  // xem hết phim, không bỏ qua: phải tự vào trận
+  let f = 0;
+  const seen = new Set();
+  while (game.state === 'deploy' && f++ < 60 * 30) {
+    step(1);
+    if (game.deploy) seen.add(game.deploy.t < 6.5 ? 'giáp' : game.deploy.t < 10.5 ? 'buồng lái' : 'máy bay');
+  }
+  assert(seen.size === 3 && f > 60 * (testHook.DEPLOY_END - 1), `phim chạy đủ 3 cảnh (${[...seen].join(', ')}, ${(f / 60).toFixed(1)}s)`);
+}
+assert(game.state === 'fight' && game.wave === 0 && game.titan.def.id === 'vanguard', 'hết phim → bắt đầu đợt 1 với VANGUARD');
 
 // Bot đơn giản: tiến lại gần, đánh đồng bộ, đỡ khi quái gồng, lướt né khi bị lao húc.
 function botFrame(frame) {
@@ -168,13 +185,28 @@ function checkLinkHold(label) {
   }
   const T = game.titan;
   const K = game.kaiju;
-  T.x = K.x - K.half - 500;
   const kx = K.x;
+  const syncFJ = () => {
+    // bấm F + J cùng lúc (lặp lại nếu khung hình bị nuốt bởi hitstop), rồi chờ đòn ra xong
+    for (let i = 0; i < 30 && !T.arms.L; i++) { press('KeyF'); press('KeyJ'); step(1); release('KeyF'); release('KeyJ'); }
+    for (let i = 0; i < 40 && (T.arms.L || T.arms.R); i++) { K.cooldown = 5; K.x = kx; step(1); }
+  };
+  // đồng bộ nhưng đứng ngoài tầm → hụt → không cộng Link
+  T.x = K.x - K.half - 500;
+  T.link = 70;
+  T.linkHold = 0;
+  const sc0 = T.syncCount;
+  syncFJ();
+  assert(T.syncCount === sc0 + 1 && T.link <= 70, `${label}: đồng bộ đánh hụt → Link không tăng (${Math.round(T.link)}%)`);
+  // đồng bộ trong tầm → trúng → Link +12
+  T.x = K.x - K.half - 100;
+  T.link = 70;
+  syncFJ();
+  assert(T.link > 80 && T.link <= 82, `${label}: đồng bộ đánh trúng → Link +12 (${Math.round(T.link)}%)`);
   T.link = 95;
   T.linkHold = 0;
-  // bấm F + J cùng lúc (lặp lại nếu khung hình bị nuốt bởi hitstop)
-  for (let i = 0; i < 30 && !T.arms.L; i++) { press('KeyF'); press('KeyJ'); step(1); release('KeyF'); release('KeyJ'); }
-  assert(T.link === 100 && T.linkHold > 4.9, `${label}: Link chạm 100% → khóa ${T.linkHold.toFixed(1)}s`);
+  syncFJ();
+  assert(T.link === 100 && T.linkHold > 4.5, `${label}: Link chạm 100% → khóa ${T.linkHold.toFixed(1)}s`);
   for (let i = 0; i < 60; i++) { K.cooldown = 5; K.x = kx; step(1); }
   testHook.hitTitan(5, 0, 1, { linkDrain: 20 });
   for (let i = 0; i < 60 * 3; i++) { K.cooldown = 5; K.x = kx; step(1); }
@@ -253,8 +285,18 @@ for (let wave = 0; wave < 3; wave++) {
     const lvl = game.upgrades.armor;
     press('Digit1'); step(1); release('Digit1');
     assert(game.upgrades.armor === lvl + 1 && game.scrap < before, `mua được nâng cấp giáp (cấp ${lvl + 1})`);
+    press('KeyS'); step(1); release('KeyS');
+    assert(game.upgrades.armor === lvl && game.scrap === before, `S giảm cấp giáp, hoàn đủ phế liệu (${before})`);
+    press('KeyD'); step(1); release('KeyD');
+    press('KeyS'); step(1); release('KeyS');
+    assert(game.shopSel === 1 && game.scrap === before, 'giảm cấp khi đang cấp 0 thì không được gì');
+    press('KeyA'); step(1); release('KeyA');
+    press('KeyW'); step(1); release('KeyW');
+    assert(game.upgrades.armor === lvl + 1, 'W nâng lại cấp giáp');
     step(30);
     press('Enter'); step(1); release('Enter');
+    assert(game.state === 'deploy' && !game.deploy.full, 'ra đợt mới: chỉ chiếu cảnh máy bay đưa Titan');
+    skipDeploy('đợt mới');
     assert(game.state === 'fight' && game.wave === wave + 1, `bắt đầu đợt ${wave + 2}`);
     assert(game.titan.maxHp === game.titan.def.hp + 30 * game.upgrades.armor, 'nâng cấp giáp được áp dụng');
   }
@@ -276,6 +318,7 @@ step(20);
 press('KeyD'); step(1); release('KeyD');
 assert(game.pick === 1, 'D chuyển sang Titan thứ hai');
 press('Enter'); step(1); release('Enter');
+skipDeploy('tempest');
 assert(game.state === 'fight' && game.titan.def.id === 'tempest' && game.titan.maxHp === 115, 'chọn TEMPEST, HP 115');
 checkSpecial('TEMPEST');
 checkSpecialInterrupt('TEMPEST');
@@ -326,5 +369,183 @@ assert(sawMissile === 6, `TEMPEST phóng loạt tên lửa (${sawMissile} quả 
 assert(sawWrist, 'TEMPEST chém bằng lưỡi kép');
 assert(game.titan.leapHits > 0, `TEMPEST đập phản lực (I) trúng đầu quái (${game.titan.leapHits} lần)`);
 console.log(`${game.state === 'clear' ? 'ok  ' : 'note'} - TEMPEST đợt 1 kết thúc: ${game.state}`);
+// ===== Menu, huấn luyện, Đua thời gian, Đấu tự do =====
+const tapKey = (c) => { press(c); step(1); release(c); };
+['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK'].forEach(release);
+function killKaiju() {
+  let f = 0;
+  while (game.kaiju.state === 'emerge' && f++ < 600) step(1);
+  game.kaiju.hp = 1;
+  testHook.damageKaiju(50, 0, false, game.kaiju.x, 300, 1);
+  f = 0;
+  while (game.state === 'fight' && f++ < 60 * 8) step(1);
+}
+function killTitan() {
+  let f = 0;
+  while (game.state === 'fight' && f++ < 60 * 6) {
+    game.titan.inv = 0;
+    game.titan.guard = false;
+    testHook.hitTitan(500, 0, 1);
+    step(1);
+  }
+}
+
+testHook.toTitle(); step(2);
+assert(game.state === 'title' && game.menu === 0, 'menu chính: mặc định chọn CHIẾN DỊCH');
+tapKey('KeyS');
+assert(game.menu === 1, 'S chuyển xuống ĐUA THỜI GIAN');
+tapKey('KeyW'); tapKey('KeyW');
+assert(game.menu === 4, 'W ở đầu danh sách thì vòng xuống mục cuối (CÀI ĐẶT)');
+tapKey('Enter');
+assert(game.settingsOpen && game.state === 'title', 'ENTER ở CÀI ĐẶT mở bảng âm thanh');
+{
+  const cfg = testHook.audioCfg;
+  const m0 = cfg.music;
+  tapKey('KeyA');
+  assert(Math.abs(cfg.music - (m0 - 0.1)) < 1e-9, `A giảm nhạc nền (${Math.round(m0 * 100)}% → ${Math.round(cfg.music * 100)}%)`);
+  tapKey('KeyS');
+  const s0 = cfg.sfx;
+  tapKey('KeyA'); tapKey('KeyA');
+  assert(Math.abs(cfg.sfx - (s0 - 0.2)) < 1e-9, `A giảm hiệu ứng (${Math.round(s0 * 100)}% → ${Math.round(cfg.sfx * 100)}%)`);
+  assert(Math.abs(testHook.sfxGain() - 0.45 * cfg.sfx) < 1e-9, 'âm lượng hiệu ứng áp dụng vào bus WebAudio');
+  tapKey('KeyS'); tapKey('Enter');
+  assert(cfg.muted && testHook.sfxMuted(), 'bật TẮT TIẾNG');
+  tapKey('KeyM');
+  assert(!cfg.muted && !testHook.sfxMuted(), 'phím M đồng bộ với cài đặt tắt tiếng');
+  tapKey('Escape');
+  assert(!game.settingsOpen && game.state === 'title', 'ESC đóng cài đặt, vẫn ở menu');
+}
+tapKey('Digit2');
+assert(game.menu === 1, 'phím số chọn nhanh chế độ');
+tapKey('KeyH');
+assert(game.showHelp, 'H mở hướng dẫn ở menu');
+tapKey('Escape');
+assert(!game.showHelp && game.state === 'title', 'ESC đóng hướng dẫn, vẫn ở menu');
+
+// Huấn luyện phi công: xem chiêu thức + chỉ số, không đánh quái
+game.titanIdx = 0;
+tapKey('Digit4');
+assert(game.menu === 3, 'phím 4: HUẤN LUYỆN PHI CÔNG');
+tapKey('Enter');
+assert(game.state === 'training' && game.train.idx === 0 && !game.kaiju, 'vào màn huấn luyện (không có quái)');
+step(30);
+for (let i = 0; i < 10; i++) { tapKey('KeyS'); step(20); }
+assert(game.train.idx === 0, 'S đi hết 10 chiêu rồi vòng lại');
+tapKey('Digit6');
+assert(game.train.idx === 5, 'phím số chọn nhanh chiêu');
+tapKey('KeyD'); step(30);
+assert(game.train.titan === 1, 'D đổi sang TEMPEST');
+for (const def of testHook.TITANS) {
+  const moves = testHook.trainMoves(def);
+  assert(moves.length === 10 && moves.every((m) => m.name && m.key && m.desc && m.stats.length > 0),
+    `${def.id}: đủ 10 chiêu, mỗi chiêu có phím, mô tả, chỉ số`);
+  const blade = moves.find((m) => m.clip === 'blade');
+  const want = (def.moves.blade || { dmg: 24 }).dmg;
+  assert(blade.dmg === want && blade.stats[0][1] === String(want), `${def.id}: chỉ số K lấy từ số liệu chiến đấu (${want})`);
+}
+{
+  // diễn từng chiêu của cả hai Titan trên sân khấu (bắt lỗi vẽ)
+  for (let ti = 0; ti < 2; ti++) {
+    for (let i = 0; i < 10; i++) {
+      game.train.titan = ti; game.train.idx = i; game.train.t = 0;
+      step(150);
+    }
+  }
+  console.log('ok  - diễn đủ 10 chiêu × 2 Titan trên sân khấu huấn luyện');
+}
+tapKey('Space');
+const tFrozen = game.train.t;
+step(30);
+assert(game.train.t === tFrozen, 'SPACE tạm dừng chuyển động');
+tapKey('Escape');
+assert(game.state === 'title' && game.titanIdx === 1, 'ESC về menu, giữ Titan đang xem');
+game.titanIdx = 0;
+
+// Tạm dừng → thoát về menu chính (cần xác nhận 2 lần)
+testHook.toTitle(); step(2);
+tapKey('Digit1'); tapKey('Enter'); step(20); tapKey('Enter');
+skipDeploy('chiến dịch');
+assert(game.state === 'fight' && game.mode === 'campaign', 'vào trận chiến dịch');
+tapKey('Escape');
+assert(game.state === 'paused' && game.pauseIdx === 0, 'ESC trong trận mở menu tạm dừng');
+tapKey('Enter');
+assert(game.state === 'fight', 'TIẾP TỤC quay lại trận');
+tapKey('KeyP');
+tapKey('KeyS');
+tapKey('Enter');
+assert(game.settingsOpen && game.state === 'paused', 'mở cài đặt âm thanh từ menu tạm dừng');
+tapKey('Escape');
+assert(!game.settingsOpen && game.state === 'paused', 'đóng cài đặt quay lại menu tạm dừng');
+tapKey('KeyW'); tapKey('KeyW');
+assert(game.pauseIdx === 4, 'W vòng lên mục cuối: THOÁT VỀ MENU CHÍNH');
+tapKey('Enter');
+assert(game.state === 'paused' && game.pauseConfirm === 'quit', 'bấm THOÁT lần 1 chỉ hỏi xác nhận');
+tapKey('KeyW'); tapKey('KeyS');
+assert(game.pauseConfirm === null, 'chuyển mục thì hủy xác nhận');
+tapKey('Enter'); tapKey('Enter');
+assert(game.state === 'title', 'bấm THOÁT lần 2 về menu chính');
+// Thoát từ xưởng nâng cấp
+tapKey('Enter'); step(20); tapKey('Enter');
+skipDeploy('thoát từ xưởng');
+killKaiju(); step(60); tapKey('Enter');
+assert(game.state === 'upgrade', 'vào xưởng sau đợt 1');
+tapKey('Escape');
+assert(game.state === 'paused' && game.pauseFrom === 'upgrade', 'ESC ở xưởng mở menu tạm dừng');
+tapKey('KeyW'); tapKey('Enter'); tapKey('Enter');
+assert(game.state === 'title', 'thoát từ xưởng về menu chính');
+
+// Đua thời gian
+testHook.toTitle(); step(2);
+tapKey('Digit2'); tapKey('Enter');
+assert(game.state === 'select' && game.mode === 'rush', 'chọn ĐUA THỜI GIAN');
+step(20); tapKey('Enter');
+skipDeploy('đua thời gian');
+for (let w = 0; w < 3; w++) {
+  assert(game.state === 'fight' && game.wave === w, `đua thời gian: đợt ${w + 1}`);
+  killKaiju();
+  assert(game.state === 'clear', `đua thời gian: hạ đợt ${w + 1} (tổng ${game.result.runTime.toFixed(1)}s)`);
+  const frozen = game.runTime;
+  step(60);
+  assert(game.runTime === frozen, 'đua thời gian: đồng hồ dừng ở màn tổng kết');
+  tapKey('Enter');
+}
+assert(game.state === 'win' && testHook.records.rush > 0, `đua thời gian: về đích, lưu kỷ lục ${testHook.records.rush.toFixed(1)}s`);
+step(70); tapKey('Enter');
+assert(game.state === 'title', 'đua thời gian: ENTER về menu');
+
+// Đấu tự do
+tapKey('Digit3'); tapKey('Enter');
+assert(game.state === 'duel', 'chọn ĐẤU TỰ DO → màn chọn quái');
+step(20);
+tapKey('KeyD'); tapKey('KeyD');
+tapKey('KeyS'); tapKey('KeyD');
+assert(game.duel.kaiju === 2 && game.duel.diff === 2, 'đấu tự do: chọn LEVIATHRAX, độ khó KHÓ');
+tapKey('Enter');
+assert(game.state === 'select', 'đấu tự do: sang chọn Titan');
+tapKey('Escape');
+assert(game.state === 'duel', 'đấu tự do: ESC ở chọn Titan quay lại chọn quái');
+step(20); tapKey('Enter'); step(20); tapKey('Enter');
+skipDeploy('đấu tự do');
+assert(game.state === 'fight' && game.kaiju.def.name === 'LEVIATHRAX' && game.kaiju.maxHp === Math.round(1050 * 1.35), `đấu tự do: đấu LEVIATHRAX HP ${game.kaiju.maxHp}`);
+killKaiju();
+assert(game.state === 'clear' && testHook.records.duel['2-2'], 'đấu tự do: thắng được đánh dấu');
+step(60); tapKey('Enter');
+assert(game.state === 'win', 'đấu tự do: màn chiến thắng');
+step(70); tapKey('Enter');
+assert(game.state === 'duel', 'đấu tự do: ENTER để đấu trận khác');
+
+{
+  // sấm chớp: tạo tia sét, có nhánh, làm sáng trời, tự tắt sau ~0,5s
+  const n0 = testHook.bolts.length;
+  testHook.spawnBolt();
+  const b = testHook.bolts[testHook.bolts.length - 1];
+  assert(testHook.bolts.length === n0 + 1 && b.main.length >= 12 && b.branches.length >= 1 && game.lightning > 0.4,
+    `sấm chớp: tia sét ${b.main.length} đoạn, ${b.branches.length} nhánh, trời sáng ${game.lightning.toFixed(2)}`);
+  step(45);
+  assert(!testHook.bolts.includes(b), 'sấm chớp: tia sét tắt sau chưa tới 1 giây');
+  let seen = 0;
+  for (let i = 0; i < 60 * 25; i++) { step(1); if (testHook.bolts.length) seen++; }
+  assert(seen > 0, 'sấm chớp ngẫu nhiên tự xuất hiện trong 25 giây');
+}
 assert(audioStats.started > 2000, `nhạc nền và hiệu ứng âm thanh chạy (${audioStats.started} nốt/âm)`);
 console.log('\nTất cả smoke test đều qua.');
