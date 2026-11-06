@@ -5,6 +5,7 @@
   "description": "EyeRim · TIDEBREAKER — game hành động robot khổng lồ trên trình duyệt. By ALumiEye.",
   "scripts": {
     "test": "node test/smoke.js && node test/gallery.js && node test/build.js",
+    "test:balance": "node test/balance.js",
     "build": "node tools/build.js",
     "check:browser": "node tools/browser-check.js",
     "check": "npm test && npm run build && npm run check:browser"

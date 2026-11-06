@@ -29,6 +29,18 @@
   const REGEN_DELAY = 1.2;
   const JET_REACH = 560; // quái trong khoảng này thì cú đấm phản lực chắc chắn trúng // năng lượng ngừng hồi sau khi tiêu
   const SYNC_WINDOW = 0.16;
+  // ---- CÂN BẰNG: đồng bộ, chuỗi đòn nhẹ, phản đòn
+  const SYNC_COOLDOWN = 1.0; // giây tối thiểu giữa hai lần đồng bộ (không spam F+J liên tục được)
+  const SYNC_LIGHT = 1.4; // hệ số sát thương đòn nhẹ (F/J) khi đồng bộ
+  const SYNC_HEAVY = 1.4; // hệ số sát thương đòn nặng (K, L, I) khi đồng bộ
+  const CHAIN_RESET = 1.0; // ngừng đấm nhẹ chừng này giây (hoặc trúng đòn nặng) thì chuỗi về 100%
+  const CHAIN_STEP = 0.1; // mỗi cú đấm nhẹ liên tiếp giảm thêm 10% sát thương
+  const CHAIN_MIN = 0.6; // ... nhưng không dưới 60%
+  const COUNTER_FROM = 0.5; // phản đòn chỉ ăn ở nửa sau thời gian gồng; nửa đầu quái gồng cứng
+  const PHASE_GAP = 140; // lướt về phía quái khi cách nó dưới chừng này px → lướt xuyên qua thân quái
+  const PHASE_SPEED = 1150;
+  const PHASE_MAX = 0.65; // giây tối đa cho một lần lướt xuyên
+  const WINDUP_VAR = 0.2; // thời gian gồng của quái dao động ±20% để không bấm theo nhịp được
   const PHASE2_SPEED = 1.35;
   const BLOCK_COST = 10; // năng lượng tốn mỗi lần đỡ đòn
   const LOSE_CITY = 0.4;
@@ -585,7 +597,7 @@
       desc: 'Giáp bạc xám kiểu Striker Eureka, vai rộng và kính tối. Lưỡi kép cổ tay, ngực phóng 6 tên lửa.',
       heightM: 80, massTonnes: 1850,
       model: { crown: 372 + BODY_LIFT, sole: 0 },
-      hp: 115, speed: 340, power: 0.9, quick: 0.75, regen: 1.3,
+      hp: 125, speed: 340, power: 0.9, quick: 0.75, regen: 1.3,
       stats: { armor: 3, speed: 5, power: 3, energy: 5 },
       weapons: [['I', 'Đập phản lực — bay lên, nện xuống đầu quái'], ['K', 'Lưỡi kép cổ tay — chém nhanh, choáng'], ['L', '6 tên lửa — giữ đủ 2s mới phóng, nạp lại 4,5s']],
       special: 'leap',
@@ -617,7 +629,7 @@
   const KMOVES = {
     claw: { windup: 0.48, active: 0.15, recover: 0.42, range: 200, dmg: 17, kb: 320, minD: 0, maxD: 270, weight: 3 },
     tail: { windup: 0.6, active: 0.2, recover: 0.5, range: 300, dmg: 14, kb: 420, minD: 0, maxD: 330, weight: 2 },
-    spit: { windup: 0.56, active: 0.1, recover: 0.5, dmg: 13, minD: 300, maxD: 1200, weight: 2 },
+    spit: { windup: 0.56, active: 0.1, recover: 0.5, dmg: 13, minD: 380, maxD: 1200, weight: 2 },
     charge: { windup: 0.75, active: 0.75, recover: 0.85, dmg: 26, kb: 650, minD: 350, maxD: 1000, weight: 2, unblockable: true },
     roar: { windup: 0.85, active: 0.3, recover: 0.7, range: 520, dmg: 9, kb: 250, minD: 0, maxD: 500, weight: 1, linkDrain: 20 },
   };
@@ -631,8 +643,8 @@
 
   const WAVES = [
     { cat: 'CẤP I', name: 'BRINECRAWLER', hp: 520, scale: 1.15, speed: 110, color: '#2d6b5e', glow: '#6dffcf', moves: ['claw', 'tail'], aggression: 1.15, combo: 0.2, district: 'Cảng Hải Đăng' },
-    { cat: 'CẤP II', name: 'GORGEMAW', hp: 760, scale: 1.3, speed: 130, color: '#5b3a6e', glow: '#ff7bf2', moves: ['claw', 'tail', 'spit', 'charge'], aggression: 1.3, combo: 0.4, district: 'Quận Kính' },
-    { cat: 'CẤP III', name: 'LEVIATHRAX', hp: 1050, scale: 1.45, speed: 145, color: '#6e2a2a', glow: '#ffb347', moves: ['claw', 'tail', 'spit', 'charge', 'roar'], aggression: 1.45, combo: 0.6, district: 'Trung tâm Thái Bình' },
+    { cat: 'CẤP II', name: 'GORGEMAW', hp: 640, scale: 1.3, speed: 130, color: '#5b3a6e', glow: '#ff7bf2', moves: ['claw', 'tail', 'spit', 'charge'], aggression: 1.3, combo: 0.4, district: 'Quận Kính' },
+    { cat: 'CẤP III', name: 'LEVIATHRAX', hp: 860, scale: 1.45, speed: 145, color: '#6e2a2a', glow: '#ffb347', moves: ['claw', 'tail', 'spit', 'charge', 'roar'], aggression: 1.45, combo: 0.6, district: 'Trung tâm Thái Bình' },
   ];
   for (const w of WAVES) {
     w.dark = shade(w.color, -0.4);
@@ -649,8 +661,9 @@
     { id: 'neural', name: 'Bộ khuếch đại Link', desc: 'Cửa sổ đồng bộ rộng hơn, Link giảm chậm hơn', cost: 40 },
   ];
   const UPGRADE_MAX = 3;
+  const UPGRADE_STEP = 30; // mỗi cấp nâng cấp đắt thêm chừng này phế liệu (giảm cấp hoàn lại đúng giá đã trả)
   const upgradeMax = () => UPGRADE_MAX;
-  const upgradeCost = (u) => u.cost + game.upgrades[u.id] * 20;
+  const upgradeCost = (u) => u.cost + game.upgrades[u.id] * UPGRADE_STEP;
 
   // ============================================================ CHẾ ĐỘ CHƠI
   const MODES = [
@@ -759,7 +772,7 @@
       blade: 1 + 0.25 * u.blade,
       regen: 7 * (1 + 0.35 * u.reactor) * curDef().regen,
       sync: SYNC_WINDOW + 0.05 * u.neural,
-      decay: Math.max(0.3, 1.5 - 0.35 * u.neural),
+      decay: Math.max(0.2, 1.0 - 0.25 * u.neural),
     };
   }
 
@@ -775,8 +788,8 @@
       dashT: 0, inv: 0, stagger: 0, hitFlash: 0, walkT: 0, muzzle: 0,
       p1Flash: 0, p2Flash: 0,
       arms: { L: null, R: null },
-      syncPending: null, syncCount: 0,
-      charge: null, regenDelay: 0, linkHold: 0, slide: null,
+      syncPending: null, syncCount: 0, lastSyncT: -99, lightChain: null,
+      charge: null, regenDelay: 0, linkHold: 0, slide: null, phase: null,
       beaming: false,
       celebrate: null, airY: 0,
     };
@@ -911,9 +924,14 @@
 
     // Đồng bộ: hai bán cầu ra đòn gần như cùng lúc.
     const other = m.arm === 'L' ? 'R' : 'L';
-    if (T.syncPending && T.syncPending.arm === other && game.t - T.syncPending.t <= M.sync) {
+    if (game.t - T.lastSyncT < SYNC_COOLDOWN) {
+      // đồng bộ đang hồi: đòn ra bình thường, không chờ ghép cặp nên cũng không bị trừ Link vì lệch nhịp
+      T.syncPending = null;
+    } else if (T.syncPending && T.syncPending.arm === other && game.t - T.syncPending.t <= M.sync) {
       T.syncPending = null;
       T.arms[m.arm].sync = true;
+      // cặp đồng bộ có đòn nặng ở bất kỳ tay nào (vd. K rồi F, hay F rồi K) → cộng Link nhiều hơn
+      T.arms[m.arm].syncHeavy = !!m.heavy || !!(T.arms[other] && T.arms[other].m.heavy) || (other === 'R' && !!T.charge);
       onSync();
     } else {
       T.syncPending = { arm: m.arm, t: game.t };
@@ -924,6 +942,7 @@
     const T = game.titan;
     const K = game.kaiju;
     T.syncCount++;
+    T.lastSyncT = game.t;
     if (T.link >= 100 && K && !K.dying && K.state !== 'emerge') {
       fireBeam();
       return;
@@ -933,18 +952,22 @@
     floatText(T.x, GROUND - (390 + BODY_LIFT) * TITAN_SCALE, 'ĐỒNG BỘ!', '#7ff6ff', 26);
   }
 
-  // Đòn đồng bộ đã đánh trúng quái → Link +12 (mỗi lần đồng bộ chỉ cộng một lần).
-  const SYNC_LINK_GAIN = 12;
-  function syncLinkGain(token) {
+  // Đòn đồng bộ đã đánh trúng quái → Link tăng (mỗi lần đồng bộ chỉ cộng một lần).
+  // Cặp có đòn nặng (K, L, I) cộng nhiều hơn cặp hai đòn nhẹ F+J: thưởng cho việc căn nhịp đòn chậm.
+  const SYNC_LINK_LIGHT = 6;
+  const SYNC_LINK_HEAVY = 10;
+  const LINK_AFTER_ULT = 30; // Link còn lại sau chiêu đặc biệt (trên 25% để Titan không bị chậm)
+  function syncLinkGain(token, heavy = true) {
+    const gain = heavy ? SYNC_LINK_HEAVY : SYNC_LINK_LIGHT;
     if (token) {
       if (token.paid) return;
       token.paid = true;
     }
     const T = game.titan;
     if (!T || T.beaming) return;
-    T.link = Math.min(100, T.link + SYNC_LINK_GAIN);
+    T.link = Math.min(100, T.link + gain);
     if (T.link >= 100 && T.linkHold <= 0) T.linkHold = LINK_HOLD;
-    floatText(T.x, GROUND - (420 + BODY_LIFT) * TITAN_SCALE, T.link >= 100 ? 'LINK 100%!' : `LINK +${SYNC_LINK_GAIN}`, '#7ff6ff', 22);
+    floatText(T.x, GROUND - (420 + BODY_LIFT) * TITAN_SCALE, T.link >= 100 ? 'LINK 100%!' : `LINK +${gain}`, '#7ff6ff', heavy ? 26 : 22);
   }
 
   function fireBeam() {
@@ -952,6 +975,7 @@
     T.arms.L = null;
     T.arms.R = null;
     T.beaming = true;
+    T.phase = null;
     T.guard = false;
     T.charge = null;
     T.linkHold = 0;
@@ -1044,7 +1068,7 @@
             let dmg = m.dmg;
             let kb = m.kb;
             if (sync) {
-              dmg *= 1.6;
+              dmg *= SYNC_HEAVY;
               kb *= 1.4;
             }
             damageKaiju(dmg, kb, true, KK.x - T.facing * KK.half * 0.6, GROUND - 210 * KK.def.scale, T.facing);
@@ -1063,13 +1087,20 @@
       let dmg = m.dmg * (a.name === 'blade' ? M.blade : T.def.power);
       let kb = m.kb;
       if (a.sync) {
-        dmg *= 1.6;
+        dmg *= m.heavy ? SYNC_HEAVY : SYNC_LIGHT;
         kb *= 1.4;
+      }
+      if (!m.heavy) {
+        // đấm nhẹ liên tiếp giảm dần sát thương: phải xen đòn nặng thay vì spam F/J
+        const C = T.lightChain;
+        const n = C && game.t - C.t < CHAIN_RESET ? C.n : 0;
+        dmg *= Math.max(CHAIN_MIN, 1 - CHAIN_STEP * n);
+        T.lightChain = { n: n + 1, t: game.t };
       }
       const hx = K.x - T.facing * K.half * 0.6;
       const hy = GROUND - (a.name === 'blade' ? 170 : 210) * K.def.scale;
-      damageKaiju(dmg, kb, !!m.heavy || a.sync, hx, hy, T.facing);
-      if (a.sync) syncLinkGain();
+      damageKaiju(dmg, kb, !!m.heavy, hx, hy, T.facing);
+      if (a.sync) syncLinkGain(null, !!a.syncHeavy);
     } else {
       sfx.whiff();
     }
@@ -1160,7 +1191,7 @@
       let dmg = L.m.dmg;
       let kb = L.m.kb;
       if (L.sync) {
-        dmg *= 1.6;
+        dmg *= SYNC_HEAVY;
         kb *= 1.4;
       }
       const hy = GROUND - L.headY;
@@ -1211,8 +1242,13 @@
     K.hp -= dmg;
     K.hitFlash = 0.1;
     K.vx += dir * kb;
+    if (heavy && game.titan) game.titan.lightChain = null;
     const charging = K.state === 'active' && K.move === 'charge';
-    if (heavy && K.state === 'windup') {
+    const armored = K.state === 'windup' && K.t < kaijuWindup(K) * COUNTER_FROM;
+    if (armored) {
+      // nửa đầu thời gian gồng: quái gồng cứng, không phản đòn / không làm choáng được
+      if (heavy && !quiet) floatText(K.x, GROUND - 340 * K.def.scale, 'GỒNG CỨNG', '#c8d2dc', 20);
+    } else if (heavy && K.state === 'windup') {
       // Đòn nặng trúng lúc quái đang gồng → phản đòn.
       K.state = 'stun';
       K.t = 0;
@@ -1534,6 +1570,10 @@
         T.inv = 0.32;
         T.energy -= 20;
         T.regenDelay = REGEN_DELAY;
+        // lướt về phía quái khi đứng sát nó → lướt xuyên qua thân quái sang phía bên kia
+        if (live && dir === Math.sign(K.x - T.x) && Math.abs(K.x - T.x) - K.half - TITAN_HALF < PHASE_GAP) {
+          T.phase = { dir, t: 0 };
+        }
         sfx.dash();
         burst(T.x - dir * 40, GROUND - 120, 18, '#7fe3ff', 250, 0.4, 5, 0);
       } else {
@@ -1551,6 +1591,18 @@
     }
     if (T.beaming) return; // vừa kích hoạt TIDEBREAKER
 
+    if (T.phase) {
+      // LƯỚT XUYÊN: giữ tốc độ, bất tử cho tới khi ra khỏi phía bên kia thân quái
+      const P = T.phase;
+      P.t += dt;
+      T.vx = P.dir * PHASE_SPEED;
+      T.inv = Math.max(T.inv, 0.08);
+      const out = !live || (T.x - K.x) * P.dir >= K.half + TITAN_HALF;
+      if (out || P.t > PHASE_MAX) {
+        T.phase = null;
+        T.vx = P.dir * 300;
+      }
+    }
     T.x += (move * spd + T.vx) * dt;
     T.vx *= Math.pow(0.005, dt);
     if (Math.abs(T.vx) < 5) T.vx = 0;
@@ -1579,8 +1631,7 @@
     }
     if (T.link > 40 && T.link < 100) T.link = Math.max(40, T.link - M.decay * dt);
     if (T.syncPending && game.t - T.syncPending.t > M.sync) {
-      T.syncPending = null;
-      if (T.linkHold <= 0) T.link = Math.max(0, T.link - 2);
+      T.syncPending = null; // đánh đơn lẻ: chỉ không được đồng bộ, không bị trừ Link
     }
 
     for (const side of ['L', 'R']) {
@@ -1600,7 +1651,7 @@
     }
 
     // Không cho hai bên đè lên nhau (trừ khi lướt né hoặc quái lao húc).
-    if (live && !T.slide && T.dashT < 0.18 && !(K.state === 'active' && K.move === 'charge')) {
+    if (live && !T.slide && !T.phase && T.dashT < 0.18 && !(K.state === 'active' && K.move === 'charge')) {
       const min = K.half + TITAN_HALF - 10;
       const d = T.x - K.x;
       if (Math.abs(d) < min) {
@@ -1625,6 +1676,13 @@
       if (r <= 0) return n;
     }
     return opts[opts.length - 1];
+  }
+
+  // Thời gian gồng thực tế của đòn quái đang ra (có dao động ngẫu nhiên và tăng tốc khi cuồng nộ).
+  function kaijuWindup(K) {
+    const mv = K.move ? KMOVES[K.move] : null;
+    if (!mv) return 0;
+    return (mv.windup * (K.windMul || 1)) / (K.phase2 ? PHASE2_SPEED : 1);
   }
 
   function updateKaiju(dt) {
@@ -1709,6 +1767,7 @@
             K.lastMove = name;
             K.state = 'windup';
             K.t = 0;
+            K.windMul = rand(1 - WINDUP_VAR, 1 + WINDUP_VAR);
             sfx.warn();
             break;
           }
@@ -1737,7 +1796,7 @@
         }
         break;
       case 'windup':
-        if (K.t >= mv.windup / fast) {
+        if (K.t >= kaijuWindup(K)) {
           K.state = 'active';
           K.t = 0;
           kaijuActiveStart(K);
@@ -1758,7 +1817,8 @@
           K.move = Math.random() < 0.5 ? 'tail' : 'claw';
           K.lastMove = K.move;
           K.state = 'windup';
-          K.t = KMOVES[K.move].windup * 0.25; // gồng nhanh hơn bình thường
+          K.windMul = rand(1 - WINDUP_VAR, 1 + WINDUP_VAR);
+          K.t = kaijuWindup(K) * 0.25; // gồng nhanh hơn bình thường
           K.facing = d >= 0 ? 1 : -1;
           floatText(K.x, GROUND - 360 * def.scale, 'COMBO!', '#ff9b5e', 22);
           sfx.warn();
@@ -1846,8 +1906,13 @@
     if (!K.chargeHit && Math.abs(T.x - K.x) < K.half + TITAN_HALF) {
       if (T.inv > 0) {
         if (!K.dodged) {
+          // né đúng lúc: cú lao húc hụt, quái khựng lại ngay tại chỗ → cơ hội trả đòn
           K.dodged = true;
-          floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'NÉ!', '#9ff', 24);
+          K.chargeHit = true;
+          K.t = mv.active;
+          K.vx = 0;
+          floatText(T.x, GROUND - (370 + BODY_LIFT) * TITAN_SCALE, 'NÉ! LAO HỤT', '#9ff', 24);
+          return;
         }
       } else {
         K.chargeHit = true;
@@ -1976,7 +2041,7 @@
         game.barrage = null;
         if (T) {
           T.beaming = false;
-          T.link = 45;
+          T.link = LINK_AFTER_ULT;
         }
       }
     }
@@ -2019,7 +2084,7 @@
       }
       game.beam = null;
       T.beaming = false;
-      T.link = 45;
+      T.link = LINK_AFTER_ULT;
     }
   }
 
@@ -2289,7 +2354,7 @@
     const T = game.titan;
     const integ = cityIntegrity();
     const hpf = T.hp / T.maxHp;
-    const gain = 60 + Math.round(integ * 80) + Math.round(hpf * 40) + T.syncCount * 2;
+    const gain = 40 + Math.round(integ * 60) + Math.round(hpf * 30);
     game.scrap += gain;
     game.result = { gain, integ, hpf, time: game.waveTime, syncs: T.syncCount, runTime: game.runTime };
     game.newRecord = false;
@@ -4535,7 +4600,7 @@
     const C = kaijuPalette(def, flash);
     const mv = K.move ? KMOVES[K.move] : null;
     const fast = K.phase2 ? PHASE2_SPEED : 1;
-    const wind = K.state === 'windup' && mv ? clamp(K.t / (mv.windup / fast), 0, 1) : 0;
+    const wind = K.state === 'windup' && mv ? clamp(K.t / kaijuWindup(K), 0, 1) : 0;
     const glow = wind > 0.55 ? '#ff4d4d' : def.glow;
     const pulse = 0.5 + 0.5 * Math.sin(game.t * (K.phase2 ? 9 : 3));
     const ph = K.walkT * 5;
@@ -4818,7 +4883,9 @@
       const danger = mv.unblockable || K.move === 'roar';
       const col = danger ? '#ff4d4d' : '#ffd84d';
       const bl = Math.sin(game.t * 30) > 0 ? 1 : 0.6;
-      text('!', sx, top - 14, { size: 46, align: 'center', color: col, glow: col, alpha: bl });
+      const wnd = clamp(K.t / kaijuWindup(K), 0, 1);
+      // dấu ! chỉ hiện khi vào cửa sổ phản đòn (nửa sau thời gian gồng); trước đó chỉ có tên đòn
+      if (wnd >= COUNTER_FROM) text('!', sx, top - 14, { size: 46, align: 'center', color: col, glow: col, alpha: bl });
       text(MOVE_LABEL[K.move], sx, top + 14, { size: 16, align: 'center', color: col });
       if (K.move === 'charge') {
         ctx.fillStyle = `rgba(255,60,60,${0.12 + wind * 0.2})`;
@@ -5487,6 +5554,13 @@
     text('NEURAL LINK', cx, 32, { size: 12, align: 'center', color: '#7f9bb8' });
     text(Math.round(T.link) + '%', cx, 68, { size: 32, align: 'center', color: lc, glow: lc, blur: 12 });
     bar(cx - 140, 80, 280, 8, T.link / 100, lc);
+    // thời gian hồi đồng bộ: vạch mảnh dưới thanh Link, sáng lên khi sẵn sàng
+    const syncK = clamp((game.t - T.lastSyncT) / SYNC_COOLDOWN, 0, 1);
+    const syncReady = syncK >= 1;
+    ctx.fillStyle = 'rgba(127,160,200,0.18)';
+    ctx.fillRect(cx - 140, 92, 280, 3);
+    ctx.fillStyle = syncReady ? '#7ff6ff' : 'rgba(127,160,200,0.6)';
+    ctx.fillRect(cx - 140, 92, 280 * syncK, 3);
     const nodes = [
       { x: cx - 130, lbl: 'P1', f: T.p1Flash, side: 'L' },
       { x: cx + 130, lbl: 'P2', f: T.p2Flash, side: 'R' },
@@ -5504,6 +5578,13 @@
       ctx.stroke();
     }
     for (const n of nodes) {
+      if (syncReady) {
+        // vòng sáng quanh nút P1/P2: đồng bộ đã sẵn sàng
+        ctx.strokeStyle = `rgba(127,246,255,${0.45 + 0.25 * Math.sin(game.t * 6)})`;
+        ctx.lineWidth = 2;
+        ellipse(n.x, 54, 21, 21);
+        ctx.stroke();
+      }
       const on = clamp(n.f / 0.3, 0, 1);
       ctx.save();
       ctx.shadowColor = '#7ff6ff';
@@ -7299,7 +7380,7 @@
       {
         clip: 'jab', key: 'F', name: 'ĐẤM TRÁI', pilot: 'PHI CÔNG 1', dmg: jab.dmg, ...timing(jab),
         desc: 'Đòn nhanh nhất. Bấm cùng lúc với J để ĐỒNG BỘ: sát thương ×2, đánh trúng quái thì Link +12.',
-        stats: [['SÁT THƯƠNG', String(jab.dmg)], ['TẦM ĐÁNH', jab.range + ' đv'], ['ĐẨY LÙI', String(jab.kb)], ['ĐỒNG BỘ F + J', '×2 sát thương']],
+        stats: [['SÁT THƯƠNG', String(jab.dmg)], ['TẦM ĐÁNH', jab.range + ' đv'], ['ĐẨY LÙI', String(jab.kb)], ['ĐỒNG BỘ F + J', '×' + String(SYNC_LIGHT).replace('.', ',') + ' · chờ ' + String(SYNC_COOLDOWN).replace('.', ',') + 's']],
       },
       {
         clip: 'hook', key: 'J', name: 'ĐẤM PHẢI', pilot: 'PHI CÔNG 2', dmg: hook.dmg, ...timing(hook),
@@ -7853,7 +7934,7 @@
   }
 
   // Giảm một cấp: hoàn lại đúng số phế liệu đã trả cho cấp đó.
-  const refundOf = (u) => (game.upgrades[u.id] > 0 ? u.cost + (game.upgrades[u.id] - 1) * 20 : 0);
+  const refundOf = (u) => (game.upgrades[u.id] > 0 ? u.cost + (game.upgrades[u.id] - 1) * UPGRADE_STEP : 0);
   function sellUpgrade(i) {
     game.shopSel = i;
     const u = UPGRADES[i];
@@ -8459,6 +8540,7 @@
     window.__TIDEBREAKER_TEST__.damageKaiju = damageKaiju;
     window.__TIDEBREAKER_TEST__.waveDef = waveDef;
     window.__TIDEBREAKER_TEST__.toTitle = toTitle;
+    window.__TIDEBREAKER_TEST__.setupWave = setupWave;
     window.__TIDEBREAKER_TEST__.records = records;
     window.__TIDEBREAKER_TEST__.bolts = bolts;
     window.__TIDEBREAKER_TEST__.spawnBolt = spawnBolt;
