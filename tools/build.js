@@ -25,6 +25,8 @@ function build(outputRoot = ROOT, version = process.env.GAME_VERSION || 'bản d
   const source = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
   const js = fs.readFileSync(path.join(ROOT, 'src/game.js'), 'utf8');
+  // Bộ vẽ Bastion dùng chung giữa trang xưởng và trận đấu: bản offline nhúng ngay sau game.js.
+  const bastionJs = fs.readFileSync(path.join(ROOT, 'titans/bastion.js'), 'utf8');
   const track = fs.readFileSync(path.join(ROOT, 'music/theme.mp3'));
   if (!track.length) throw new Error('music/theme.mp3 đang rỗng.');
 
@@ -36,10 +38,13 @@ function build(outputRoot = ROOT, version = process.env.GAME_VERSION || 'bản d
     embeddedHtml = replaceOnce(embeddedHtml, `"assets/${name}"`, `"data:image/png;base64,${data.toString('base64')}"`);
   }
   const embeddedJs = replaceOnce(js, "'music/theme.mp3'", JSON.stringify(`data:audio/mpeg;base64,${track.toString('base64')}`));
+  const inlineJs = `${embeddedJs}\n;\n${bastionJs}`;
   const standalone = replaceOnce(
-    replaceOnce(embeddedHtml, /\n {2}<link rel="stylesheet" href="style\.css(?:\?v=\d+)?">/, ''),
+    replaceOnce(
+      replaceOnce(embeddedHtml, /\n {2}<link rel="stylesheet" href="style\.css(?:\?v=\d+)?">/, ''),
+      /\n {2}<script src="titans\/bastion\.js(?:\?v=\d+)?"><\/script>/, ''),
     /<script src="src\/game\.js(?:\?v=\d+)?"><\/script>/,
-    `<script>\n${embeddedJs.replace(/<\/script/gi, '<\\/script')}\n  </script>`
+    `<script>\n${inlineJs.replace(/<\/script/gi, '<\\/script')}\n  </script>`
   );
   const releaseHtml = replaceOnce(standalone, '</head>', `  <style>\n${css}\n  </style>\n</head>`);
 

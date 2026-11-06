@@ -63,6 +63,8 @@ sandbox.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
 vm.runInNewContext(src, sandbox, { filename: 'game.js' });
+// Bộ vẽ Bastion (dùng chung với trang xưởng) nạp sau game.js như index.html.
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'titans', 'bastion.js'), 'utf8'), sandbox, { filename: 'bastion.js' });
 const game = testHook.game;
 
 const fire = (type, code) => (listeners[type] || []).forEach((fn) => fn({ code, preventDefault: noop }));
@@ -154,9 +156,11 @@ function checkUlt(label, kind) {
   press('KeyF'); press('KeyJ'); step(1); release('KeyF'); release('KeyJ');
   assert(T.beaming && T.def.ult === kind, `${label}: Link 100% + đồng bộ → tung chiêu đặc biệt (${T.def.ultName})`);
   if (kind === 'orbital') assert(game.strikes.length === 6, `${label}: gọi 6 tên lửa vệ tinh`);
+  if (kind === 'salvo') assert(!!game.salvo, `${label}: hai pháo vai bắt đầu loạt pháo kép`);
   f = 0;
   while (T.beaming && f++ < 60 * 5) { K.cooldown = Math.max(K.cooldown, 1); step(1); }
   assert(!T.beaming && game.kaiju.hp < hp0, `${label}: chiêu đặc biệt gây ${Math.round(hp0 - game.kaiju.hp)} sát thương rồi kết thúc`);
+  if (kind === 'salvo') assert(game.trails.length === 14 && game.trails.every((tr) => tr.pts.length > 5), `${label}: 14 tên lửa, mỗi quả để lại vệt khói (${game.trails.length} vệt)`);
 }
 
 // Link chạm 100% → giữ 5 giây (trúng đòn không mất), hết giờ mà chưa dùng thì tụt.
@@ -357,6 +361,45 @@ assert(sawMissile === 6, `TEMPEST phóng loạt tên lửa (${sawMissile} quả 
 assert(sawWrist, 'TEMPEST chém bằng lưỡi kép');
 assert(game.titan.leapHits > 0, `TEMPEST đập phản lực (I) trúng đầu quái (${game.titan.leapHits} lần)`);
 console.log(`${game.state === 'clear' ? 'ok  ' : 'note'} - TEMPEST đợt 1 kết thúc: ${game.state}`);
+
+// Chọn BASTION (Titan thứ ba), chơi đợt 1: búa móc, tên lửa kép, búa phản lực, loạt pháo kép.
+['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK', 'KeyI', 'KeyW'].forEach(release);
+testHook.toTitle(); step(2);
+press('Enter'); step(1); release('Enter');
+step(20);
+for (let i = 0; i < 3 && game.pick !== 2; i++) { press('KeyD'); step(1); release('KeyD'); }
+assert(game.pick === 2, 'D chuyển sang Titan thứ ba');
+press('Enter'); step(1); release('Enter');
+skipDeploy('bastion');
+assert(game.state === 'fight' && game.titan.def.id === 'bastion' && game.titan.maxHp === 165, 'chọn BASTION, HP 165');
+assert(!!sandbox.EyeRimBastion, 'bộ vẽ Bastion (titans/bastion.js) đã nạp vào game');
+checkSpecial('BASTION');
+checkSpecialInterrupt('BASTION');
+checkUlt('BASTION', 'salvo');
+{
+  // L: giữ 1,6 s rồi thả → hai tên lửa lớn rời hai pháo vai cùng lúc (giữ quái đứng yên khi đo)
+  const TB = game.titan;
+  const KB = game.kaiju;
+  const kx = KB.x;
+  TB.energy = 100;
+  TB.x = KB.x - KB.half - 400;
+  let sawShells = 0;
+  const hp0 = KB.hp;
+  press('KeyL');
+  for (let i = 0; i < 96; i++) { KB.cooldown = 5; KB.x = kx; step(1); }
+  release('KeyL');
+  for (let i = 0; i < 150; i++) { KB.cooldown = 5; KB.x = kx; step(1); sawShells = Math.max(sawShells, game.projectiles.filter((p) => p.shell).length); }
+  assert(sawShells === 2 && KB.hp < hp0, `BASTION phóng tên lửa kép (${sawShells} quả cùng lúc, -${Math.round(hp0 - KB.hp)} HP)`);
+  let f = 0;
+  const bastionBot = makeSkilledBot();
+  while (game.state === 'fight' && f < 60 * 240) {
+    bastionBot(game, botIo, f++);
+    step(1);
+  }
+  ['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK', 'KeyI', 'KeyW'].forEach(release);
+  assert(game.state === 'clear', `BASTION hạ gục quái đợt 1 (${(f / 60).toFixed(1)}s)`);
+  step(200); // diễn ăn mừng
+}
 // ===== Menu, huấn luyện, Đua thời gian, Đấu tự do =====
 const tapKey = (c) => { press(c); step(1); release(c); };
 ['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK'].forEach(release);
@@ -432,21 +475,21 @@ for (const def of testHook.TITANS) {
   assert(blade.dmg === want && blade.stats[0][1] === String(want), `${def.id}: chỉ số K lấy từ số liệu chiến đấu (${want})`);
 }
 {
-  // diễn từng chiêu của cả hai Titan trên sân khấu (bắt lỗi vẽ)
-  for (let ti = 0; ti < 2; ti++) {
+  // diễn từng chiêu của mọi Titan trên sân khấu (bắt lỗi vẽ)
+  for (let ti = 0; ti < testHook.TITANS.length; ti++) {
     for (let i = 0; i < 10; i++) {
       game.train.titan = ti; game.train.idx = i; game.train.t = 0;
       step(150);
     }
   }
-  console.log('ok  - diễn đủ 10 chiêu × 2 Titan trên sân khấu huấn luyện');
+  console.log(`ok  - diễn đủ 10 chiêu × ${testHook.TITANS.length} Titan trên sân khấu huấn luyện`);
 }
 tapKey('Space');
 const tFrozen = game.train.t;
 step(30);
 assert(game.train.t === tFrozen, 'SPACE tạm dừng chuyển động');
 tapKey('Escape');
-assert(game.state === 'title' && game.titanIdx === 1, 'ESC về menu, giữ Titan đang xem');
+assert(game.state === 'title' && game.titanIdx === testHook.TITANS.length - 1, 'ESC về menu, giữ Titan đang xem');
 game.titanIdx = 0;
 
 // Tạm dừng → thoát về menu chính (cần xác nhận 2 lần)

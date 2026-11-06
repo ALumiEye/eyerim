@@ -17,7 +17,7 @@ try {
     source.replace('<span id="game-version">BẢN NGUỒN</span>', '<span id="game-version">v9.9.9-test</span>'),
     'Pages chỉ khác nguồn ở ô phiên bản');
   for (const file of ['style.css', 'src/game.js', 'music/theme.mp3',
-    'titans/vanguard.html', 'titans/tempest.html', 'titans/gallery.css', 'titans/gallery.js',
+    'titans/vanguard.html', 'titans/tempest.html', 'titans/bastion.html', 'titans/bastion.js', 'titans/gallery.css', 'titans/gallery.js',
     'assets/alumieye.png', 'assets/lumi.png', 'assets/favicon.png']) {
     assert.deepEqual(fs.readFileSync(path.join(pages, file)), fs.readFileSync(path.join(root, file)), file);
   }

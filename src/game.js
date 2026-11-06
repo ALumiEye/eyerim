@@ -615,7 +615,38 @@
         jet: { arm: 'R', windup: 1.0, active: 0.2, recover: 0.7, dmg: 36, range: 330, kb: 150, heavy: true, energy: 25 },
       },
     },
+    {
+      // BASTION: bộ vẽ ở titans/bastion.js (dùng chung với trang xưởng). Pháo binh hạng nặng: trâu, chậm, đòn nặng mạnh.
+      id: 'bastion', name: 'EYERIM BASTION', role: 'PHÁO BINH HẠNG NẶNG · CHỐNG CHỊU',
+      desc: 'Giáp xám ô-liu, vạch đỏ, kính xanh dọc. Búa thủy lực tay trái, hai pháo vai phóng tên lửa lớn.',
+      heightM: 84, massTonnes: 2950,
+      model: { crown: 540, sole: 9 },
+      hp: 165, speed: 235, power: 1, quick: 1, regen: 0.8,
+      stats: { armor: 5, speed: 2, power: 5, energy: 2 },
+      weapons: [['I', 'Búa phản lực — bay lên, phang búa xuống'], ['K', 'Búa móc — móc từ dưới lên, tầm xa'], ['L', 'Tên lửa kép — giữ để nạp, thả để phóng']],
+      special: 'leap',
+      ult: 'salvo', ultName: 'LOẠT PHÁO KÉP',
+      head: 'bastion', missiles: false, shells: true, wristBlades: false,
+      pal: {
+        front: { hi: '#b5ba9f', armor: '#788174', lo: '#535f54', frame: '#243036', frameHi: '#7c8d8d', accent: '#c0573f', line: '#172125', steel: '#7c8d8d', visor: '#45bee8' },
+        back: { hi: '#8e967f', armor: '#5d665b', lo: '#404a42', frame: '#172125', frameHi: '#5c6b6b', accent: '#8a3f31', line: '#0f171a', steel: '#5c6b6b', visor: '#2f8fb0' },
+      },
+      moves: {
+        // K: tay trái hóa búa, móc từ dưới lên (nhịp khớp hammerPose của bộ vẽ: đỉnh móc ở 0,42–0,49 s).
+        // Ô arm theo PHI CÔNG (R = phi công 2), không theo tay vẽ. Bastion đảo tay đấm (F tay phải, J tay trái)
+        // nên đồng bộ F + K là hai phi công, hai tay khác nhau.
+        // Trúng đúng lúc búa lên đỉnh cú móc (hammerPose: móc lên 0,32→0,42 s, giữ đỉnh tới 0,49 s). Trước đây trúng ở 0,34 s
+        // khi búa còn hạ dưới eo → số sát thương và Link bật ra trước khi búa chạm quái.
+        // Tầm 255: ở mép tầm, đỉnh cú móc (~175 px từ tâm Titan) chạm đúng mõm quái — đã kiểm bằng ảnh chụp với cả 3 quái.
+        blade: { arm: 'R', windup: 0.42, active: 0.07, recover: 0.29, dmg: 25, range: 255, kb: 520, heavy: true },
+        // L: nạp như pháo plasma, thả là hai tên lửa lớn rời hai pháo vai cùng lúc
+        cannon: { arm: 'R', windup: 0.1, active: 0.1, recover: 0.7, projectile: true },
+        // I: ba lô phản lực đưa Titan lên rồi búa tay phải phang xuống đầu quái
+        jet: { arm: 'R', windup: 1.0, active: 0.2, recover: 0.7, dmg: 40, range: 330, kb: 180, heavy: true, energy: 25 },
+      },
+    },
   ];
+  const SHELL_DMG = { base: 8, full: 20 }; // BASTION: sát thương mỗi tên lửa lớn = base + full × mức nạp (2 quả mỗi lần)
   const STRIKE_DELAY = 0.9; // TEMPEST (chiêu đặc biệt): giây từ lúc khóa tới khi mỗi tên lửa vệ tinh rơi trúng
   const LEAP = { up: 0.34, smash: 0.14, fall: 0.32 }; // TEMPEST: thời lượng các pha đập phản lực
   const MISSILE_CHARGE = 2.0; // TEMPEST: giữ L đủ chừng này giây mới phóng được (thả sớm = hủy)
@@ -754,6 +785,8 @@
     buildings: [],
     projectiles: [],
     strikes: [],
+    salvo: null,
+    trails: [],
     barrage: null,
     beam: null,
     cam: 0,
@@ -980,6 +1013,14 @@
     T.charge = null;
     T.linkHold = 0;
     game.ultFx = { t: 0 };
+    if (T.def.ult === 'salvo') {
+      // BASTION: hai pháo vai dựng lên, bắn luân phiên một loạt tên lửa vọt lên trời rồi bổ nhào xuống quái
+      game.salvo = { t: 0, fired: 0, live: [], done: false };
+      sfx.satCall();
+      shake(8);
+      fx.flash = 0.3;
+      return;
+    }
     if (T.def.ult === 'orbital') {
       // TEMPEST: gọi một loạt 6 tên lửa vệ tinh, khóa chắc vào quái, rơi nối tiếp nhau
       const K = game.kaiju;
@@ -1011,6 +1052,10 @@
     const m = a.m;
     if (m.projectile && T.def.missiles) {
       launchMissiles(T, a);
+      return;
+    }
+    if (m.projectile && T.def.shells) {
+      launchShells(T, a);
       return;
     }
     if (m.projectile) {
@@ -1208,6 +1253,30 @@
       burst(T.x + T.facing * 60, GROUND - 6, 30, '#8c93a3', 360, 1.2, 9, -30, true);
       fx.rings.push({ x: T.x + T.facing * 60, y: GROUND - 8, r: 0, max: 260, life: 0.5, color: '#8c93a3' });
     }
+  }
+
+  // BASTION: hai tên lửa lớn rời hai pháo vai cùng lúc, bay vồng lên rồi tự dẫn vào quái.
+  function launchShells(T, a) {
+    const lv = a.level;
+    const M = mods();
+    const s = titanDrawScale(T);
+    const syncTok = a.sync ? { paid: false } : null; // cả loạt chỉ cộng Link một lần
+    for (let i = 0; i < 2; i++) {
+      game.projectiles.push({
+        // rời đúng họng hai pháo vai khi đã xoay ngang ra trước (mốc nòng theo missileVolley của bộ vẽ)
+        owner: 'titan', missile: true, shell: true, home: 0.16 + i * 0.05,
+        x: T.x + T.facing * (233 - i * 10) * s,
+        y: GROUND - (562 + 50 * i + T.def.model.sole) * s,
+        vx: T.facing * 760, vy: -40 - i * 30, g: 0,
+        r: 14, dmg: (SHELL_DMG.base + SHELL_DMG.full * lv) * M.blade * (a.sync ? 1.5 : 1),
+        kb: 150 + 320 * lv, heavy: lv >= 0.6, life: 3, syncTok, born: game.t,
+      });
+    }
+    shake(4 + 8 * lv);
+    floatText(T.x, GROUND - (400 + BODY_LIFT) * TITAN_SCALE, lv >= 0.99 ? 'TÊN LỬA KÉP TỐI ĐA!' : 'TÊN LỬA KÉP!', '#eba96b', 24);
+    T.muzzle = 0.12;
+    sfx.cannon();
+    burst(T.x + T.facing * 230 * s, GROUND - 590 * s, 16, '#eba96b', 260, 0.4, 5, 0);
   }
 
   // TEMPEST: loạt tên lửa từ hai bệ trên ngực, bay vồng lên rồi tự dẫn vào quái.
@@ -1442,9 +1511,10 @@
         const d = 40 + 30 * C.level;
         const mis = T.def.missiles;
         const scale = titanDrawScale(T);
-        const fx0 = T.x + T.facing * (mis ? LAUNCHER.x : 225) * scale;
-        const fy0 = GROUND - ((mis ? -LAUNCHER.y + BODY_LIFT : 256 + BODY_LIFT) + T.def.model.sole) * scale;
-        burst(fx0 + Math.cos(a) * d, fy0 + Math.sin(a) * d, 1, mis ? '#ffd36b' : '#bff8ff', 30, 0.25, 3, 0);
+        // BASTION: tia nạp tụ quanh họng hai pháo vai
+        const fx0 = T.x + T.facing * (T.def.shells ? 230 : mis ? LAUNCHER.x : 225) * scale;
+        const fy0 = T.def.shells ? GROUND - 590 * scale : GROUND - ((mis ? -LAUNCHER.y + BODY_LIFT : 256 + BODY_LIFT) + T.def.model.sole) * scale;
+        burst(fx0 + Math.cos(a) * d, fy0 + Math.sin(a) * d, 1, mis || T.def.shells ? '#ffd36b' : '#bff8ff', 30, 0.25, 3, 0);
       }
       return;
     }
@@ -1988,6 +2058,173 @@
   }
 
   // TEMPEST · MƯA TÊN LỬA VỆ TINH: các tên lửa khóa chắc vào đầu quái, rơi nối tiếp; xong thì Titan hạ tay.
+  // ===== BASTION · LOẠT PHÁO KÉP =====
+  // Nhịp phóng khớp chu kỳ động tác 'ultimate' của bộ vẽ: mỗi SALVO_PAIR giây hai pháo lóe lần lượt
+  // (pháo gần ở 0,42 chu kỳ, pháo xa ở 0,76 chu kỳ) → mỗi lần lóe là một quả rời nòng.
+  const SALVO = { n: 14, deploy: 0.55, pair: 0.22, dmg: 7, lastKb: 700, climb: 0.5, trailLife: 2.6 };
+  const salvoLaunchAt = (k) => SALVO.deploy + Math.floor(k / 2) * SALVO.pair + (k % 2 ? 0.76 : 0.42) * SALVO.pair;
+  const SALVO_END = salvoLaunchAt(SALVO.n - 1);
+  // Họng hai pháo vai (đơn vị mô hình Bastion, đã xoay ngang ra trước): gần (k chẵn) cao hơn, xa (k lẻ) thấp hơn.
+  const SALVO_MUZZLE = [{ x: 223, y: 612 }, { x: 233, y: 562 }];
+
+  function updateSalvo(dt) {
+    // vệt khói vẫn tan dần sau khi chiêu kết thúc
+    for (const tr of game.trails) {
+      for (const p of tr.pts) {
+        p.age += dt;
+        p.y -= 14 * dt; // khói bốc nhẹ lên
+        p.x += 10 * dt; // gió biển thổi vào bờ
+      }
+      tr.pts = tr.pts.filter((p) => p.age < SALVO.trailLife);
+    }
+    game.trails = game.trails.filter((tr) => tr.pts.length || tr.live);
+    const S = game.salvo;
+    const T = game.titan;
+    const K = game.kaiju;
+    if (!S || !T) return;
+    S.t += dt;
+    const s = titanDrawScale(T);
+    // phóng
+    while (S.fired < SALVO.n && S.t >= salvoLaunchAt(S.fired)) {
+      const k = S.fired++;
+      const mz = SALVO_MUZZLE[k % 2];
+      const x = T.x + T.facing * mz.x * s;
+      const y = GROUND - (mz.y + T.def.model.sole) * s;
+      const trail = { pts: [], live: true };
+      game.trails.push(trail);
+      S.live.push({
+        k, x, y, trail, t: 0,
+        // rời nòng theo hướng pháo (ngang ra trước) rồi ngóc đầu vọt lên trời
+        vx: T.facing * rand(880, 1000), vy: -rand(60, 160),
+        climbVx: T.facing * rand(260, 420), climbVy: -rand(1150, 1350),
+        spread: rand(-1, 1) * 70 + (k % 3 - 1) * 40,
+        wob: rand(0, PI2),
+      });
+      sfx.cannon();
+      shake(3);
+      T.muzzle = 0.08;
+      burst(x, y, 10, pick(['#ffffff', '#ffd36b', '#eba96b']), 240, 0.3, 4, 0);
+      burst(x - T.facing * 30, y, 8, '#e6e8ec', 120, 1.1, 9, -40, true); // khói phụt ra sau nòng
+    }
+    // bay
+    for (const m of S.live) {
+      m.t += dt;
+      const tx = (K && !K.dying ? K.x : m.x) + m.spread;
+      const ty = K && !K.dying ? GROUND - 200 * K.def.scale + K.y + Math.abs(m.spread) * 0.3 : GROUND - 40;
+      if (m.t < SALVO.climb) {
+        // pha leo: bay thẳng theo nòng một nhịp ngắn, rồi ngóc đầu lên trời (vệt khói cong từ họng pháo)
+        if (m.t > 0.07) {
+          const kk = Math.min(1, 7 * dt);
+          m.vx += (m.climbVx - m.vx) * kk;
+          m.vy += (m.climbVy - m.vy) * kk;
+        }
+      } else {
+        // pha bổ nhào: dẫn đường mạnh về mục tiêu, tăng tốc
+        const d = Math.hypot(tx - m.x, ty - m.y) || 1;
+        const sp = 1250 + (m.t - SALVO.climb) * 900;
+        const kk = Math.min(1, 7 * dt);
+        m.vx += ((tx - m.x) / d * sp - m.vx) * kk;
+        m.vy += ((ty - m.y) / d * sp - m.vy) * kk;
+      }
+      m.x += m.vx * dt + Math.sin(m.t * 22 + m.wob) * 18 * dt;
+      m.y += m.vy * dt;
+      m.trail.pts.push({ x: m.x, y: m.y, age: 0, r: rand(0.85, 1.15) });
+      if (m.trail.pts.length > 90) m.trail.pts.shift();
+      // trúng: chạm thân quái, chạm đất, hoặc bay quá lâu
+      const hitK = K && !K.dying && K.state !== 'emerge' && m.t > SALVO.climb && Math.abs(m.x - K.x) < K.half && m.y > GROUND - 290 * K.def.scale + K.y;
+      if (hitK || m.y >= GROUND - 10 || m.t > 2.6) {
+        m.dead = true;
+        m.trail.live = false;
+        const last = m.k === SALVO.n - 1;
+        sfx.jetBoom();
+        shake(last ? 22 : 7);
+        fx.blasts.push({ x: m.x, y: Math.min(m.y, GROUND - 20), t: 0, big: last, small: !last });
+        fx.rings.push({ x: m.x, y: m.y, r: 0, max: last ? 460 : 170, life: last ? 0.8 : 0.4, color: last ? '#ffffff' : '#ffd36b' });
+        burst(m.x, m.y, last ? 70 : 22, pick(['#ffffff', '#ffd36b', '#ff9b3d']), last ? 720 : 420, 0.6, 5, 300);
+        if (last) fx.flash = 0.5;
+        if (K && !K.dying && Math.abs(m.x - K.x) < K.half + 90) {
+          const M = mods();
+          damageKaiju(SALVO.dmg * M.blade, last ? SALVO.lastKb : 50, last, m.x, m.y, T.facing, true);
+          if (!K.dying && K.state !== 'dead') {
+            K.state = 'stun';
+            K.t = 0;
+            K.stunDur = 0.45;
+            K.move = null;
+          }
+        }
+      }
+    }
+    S.live = S.live.filter((m) => !m.dead);
+    // kết thúc khi đã phóng hết, quả cuối đã nổ và hai pháo đã thu về
+    if (S.fired >= SALVO.n && !S.live.length && !S.done) {
+      S.done = true;
+      S.endT = S.t;
+    }
+    if (S.done && S.t - S.endT > 0.45) {
+      game.salvo = null;
+      T.beaming = false;
+      T.link = LINK_AFTER_ULT;
+    }
+  }
+
+  // Vệt khói trắng kéo dài sau đuôi: dày và nhạt dần theo tuổi, như khói tên lửa thật.
+  function drawSalvo() {
+    if (!game.trails.length && !game.salvo) return;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const tr of game.trails) {
+      const P = tr.pts;
+      for (let i = 1; i < P.length; i++) {
+        const a = P[i - 1];
+        const b = P[i];
+        const life = 1 - b.age / SALVO.trailLife;
+        if (life <= 0) continue;
+        // lớp ngoài: khói loang rộng, mờ
+        ctx.strokeStyle = `rgba(214,220,228,${0.16 * life})`;
+        ctx.lineWidth = (10 + b.age * 34) * b.r;
+        ctx.beginPath();
+        ctx.moveTo(a.x - game.cam, a.y);
+        ctx.lineTo(b.x - game.cam, b.y);
+        ctx.stroke();
+        // lõi khói: trắng, đặc hơn khi còn mới
+        ctx.strokeStyle = `rgba(250,251,253,${0.55 * life * life})`;
+        ctx.lineWidth = (3 + b.age * 12) * b.r;
+        ctx.beginPath();
+        ctx.moveTo(a.x - game.cam, a.y);
+        ctx.lineTo(b.x - game.cam, b.y);
+        ctx.stroke();
+      }
+    }
+    const S = game.salvo;
+    if (S && game.titan) {
+      const sc = titanDrawScale(game.titan) * 0.42;
+      for (const m of S.live) {
+        const x = m.x - game.cam;
+        const ang = Math.atan2(m.vy, m.vx);
+        // lửa đuôi
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createRadialGradient(x - Math.cos(ang) * 26, m.y - Math.sin(ang) * 26, 0, x - Math.cos(ang) * 26, m.y - Math.sin(ang) * 26, 26);
+        g.addColorStop(0, 'rgba(255,250,220,0.95)');
+        g.addColorStop(0.4, 'rgba(255,170,70,0.7)');
+        g.addColorStop(1, 'rgba(255,90,20,0)');
+        ctx.fillStyle = g;
+        ellipse(x - Math.cos(ang) * 26, m.y - Math.sin(ang) * 26, 26, 26);
+        ctx.fill();
+        ctx.restore();
+        if (window.EyeRimBastion) {
+          ctx.save();
+          ctx.translate(x, m.y);
+          ctx.scale(sc, sc);
+          window.EyeRimBastion.missile(ctx, { x: 0, y: 0, angle: ang, age: m.t, near: m.k % 2 === 0, alpha: 1 });
+          ctx.restore();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
   function updateStrikes(dt) {
     const T = game.titan;
     const K = game.kaiju;
@@ -2256,6 +2493,8 @@
     game.projectiles = [];
     game.strikes = [];
     game.barrage = null;
+    game.salvo = null;
+    game.trails = [];
     game.beam = null;
     fx.particles.length = 0;
     fx.texts.length = 0;
@@ -2338,6 +2577,8 @@
     game.projectiles = [];
     game.strikes = [];
     game.barrage = null;
+    game.salvo = null;
+    game.trails = [];
     game.beam = null;
   }
 
@@ -2376,13 +2617,14 @@
       game.ultFx.t += dt;
       if (game.ultFx.t > 1.2) game.ultFx = null;
     }
-    const ultOn = game.beam || game.barrage ? 1 : 0;
+    const ultOn = game.beam || game.barrage || game.salvo ? 1 : 0;
     game.ultDim = lerp(game.ultDim || 0, ultOn, 1 - Math.pow(0.002, dt));
     updateTitan(dt);
     updateKaiju(dt);
     updateProjectiles(dt);
     updateBeam(dt);
     updateStrikes(dt);
+    updateSalvo(dt);
     updateBuildings(dt);
     if (game.state !== 'fight') return;
     if (cityIntegrity() < LOSE_CITY) endWave('city');
@@ -4150,6 +4392,44 @@
     return `${def.heightM} m · ${def.massTonnes.toLocaleString('vi-VN')} tấn`;
   }
 
+  // BASTION: trạng thái chiến đấu → động tác + thời điểm của bộ vẽ titans/bastion.js.
+  // Mỗi mốc thời gian khớp nhịp của bộ vẽ (gồng, ra đòn, hồi) để động tác trong trận giống trang xưởng.
+  const BASTION_WALK = (2 * Math.PI / 4.8) * 4; // 4 chu kỳ bước, < 6 s để không giật khi quay vòng
+  function bastionClip(T) {
+    const a = T.arms.R;
+    const l = T.arms.L;
+    const wrap = (x, p) => ((x % p) + p) % p;
+    if (T.celebrate) return { clip: 'celebrate', time: clamp(T.celebrate.t, 0, 2.99) };
+    if (T.beaming) {
+      const S = game.salvo;
+      if (!S) return { clip: 'ultimate', time: 0.66 + wrap(game.t * 1.4, 1) };
+      // dựng pháo → giữ ở thế bắn, mỗi lần lóe khớp một quả rời nòng → thu pháo về
+      if (S.t < SALVO.deploy) return { clip: 'ultimate', time: 0.66 * (S.t / SALVO.deploy) };
+      if (!S.done) return { clip: 'ultimate', time: 0.66 + wrap((S.t - SALVO.deploy) / SALVO.pair, 1) };
+      return { clip: 'ultimate', time: Math.min(2.3, 1.7 + (S.t - S.endT) * 1.4) };
+    }
+    if (T.leap) {
+      const t = T.leap.t;
+      let ph;
+      if (t < LEAP.up) ph = 0.3 + 0.57 * (t / LEAP.up);
+      else if (t < LEAP.up + LEAP.smash) ph = 0.87 + 0.21 * ((t - LEAP.up) / LEAP.smash);
+      else ph = 1.08 + 0.52 * Math.min(1, (t - LEAP.up - LEAP.smash) / LEAP.fall);
+      return { clip: 'special', time: ph };
+    }
+    if (a && a.name === 'jet') return { clip: 'special', time: 0.05 + 0.25 * Math.min(1, a.t / a.windup) };
+    if (T.stagger > 0) return { clip: 'stagger', time: game.t };
+    if (T.charge) return { clip: 'cannon', time: Math.min(0.95, T.charge.t * 1.2) };
+    if (a && a.name === 'cannon') return { clip: 'cannon', time: 0.95 + a.t };
+    // búa K (tay trái) + đấm F (tay phải) cùng lúc khi đồng bộ: vẽ cả hai tay
+    if (a && a.name === 'blade') return { clip: 'blade', time: a.t, jabTime: l && l.name === 'jab' ? l.t : null };
+    if (l && l.name === 'jab') return { clip: 'jab', time: l.t };
+    if (a && a.name === 'hook') return { clip: 'hook', time: a.t };
+    if (T.dashT > 0) return { clip: 'dash', time: 0.05 + 1.25 * (1 - T.dashT / 0.5) };
+    if (T.guard) return { clip: 'guard', time: wrap(game.t, Math.PI) };
+    if (T.moving) return { clip: 'walk', time: wrap(T.walkT, BASTION_WALK) };
+    return { clip: 'idle', time: wrap(game.t, Math.PI) };
+  }
+
   function drawTitan(T) {
     if (!T) return;
     const ja = T.arms.R;
@@ -4230,6 +4510,19 @@
     ellipse(0, 2, 105 * TITAN_SCALE * (1 - T.airY / 400), 11);
     ctx.fill();
     ctx.translate(0, -T.airY);
+    if (T.def.id === 'bastion') {
+      // BASTION: bộ vẽ riêng (titans/bastion.js); ánh xạ trạng thái chiến đấu → động tác + thời điểm
+      const BR = window.EyeRimBastion;
+      if (BR) {
+        const ms = titanDrawScale(T);
+        ctx.scale(T.facing * ms, ms);
+        if (T.inv > 0) ctx.globalAlpha = 0.6 + 0.3 * Math.sin(game.t * 60);
+        const bc = bastionClip(T);
+        BR.drawInGame(ctx, bc.clip, bc.time, { inPlace: true, hit: flash, jabTime: bc.jabTime });
+      }
+      ctx.restore();
+      return;
+    }
     const modelScale = titanDrawScale(T);
     ctx.scale(T.facing * modelScale * spin, modelScale);
     ctx.translate(0, -T.def.model.sole);
@@ -4900,6 +5193,17 @@
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const p of game.projectiles) {
+      if (p.shell && window.EyeRimBastion && game.titan) {
+        // BASTION: tên lửa lớn vẽ bằng đúng bộ vẽ của trang xưởng (chế độ hòa màu thường, không cộng sáng)
+        const sc = titanDrawScale(game.titan);
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.translate(p.x - game.cam, p.y);
+        ctx.scale(sc, sc);
+        window.EyeRimBastion.missile(ctx, { x: 0, y: 0, angle: Math.atan2(p.vy, p.vx), age: game.t - (p.born || 0), near: true, alpha: 1 });
+        ctx.restore();
+        continue;
+      }
       if (p.owner === 'titan' && p.missile) {
         // tên lửa: thân thon, đầu sáng, lửa đuôi
         const x = p.x - game.cam;
@@ -5286,7 +5590,7 @@
   function drawBlasts() {
     for (const b of fx.blasts) {
       const x = b.x - game.cam;
-      const big = b.big ? 1.8 : 1;
+      const big = b.big ? 1.8 : b.small ? 0.5 : 1;
       const t = b.t;
       const grow = easeOut(clamp(t / 0.22, 0, 1));
       const fade = clamp(1 - (t - 0.15) / 0.75, 0, 1);
@@ -5307,7 +5611,7 @@
       }
       ctx.globalCompositeOperation = 'lighter';
       // cột sáng
-      const pil = clamp(1 - t / 0.45, 0, 1);
+      const pil = b.small ? 0 : clamp(1 - t / 0.45, 0, 1);
       if (pil > 0) {
         const pg = ctx.createLinearGradient(x - 40 * big, 0, x + 40 * big, 0);
         pg.addColorStop(0, 'rgba(255,200,120,0)');
@@ -5536,7 +5840,7 @@
       const x = T.x - game.cam - 70;
       const y = barY;
       const full = lv >= 1;
-      const wname = T.def.missiles ? 'TÊN LỬA' : 'PLASMA';
+      const wname = T.def.missiles ? 'TÊN LỬA' : T.def.shells ? 'TÊN LỬA KÉP' : 'PLASMA';
       text(full ? wname + ' TỐI ĐA — THẢ L' : 'NẠP ' + wname, x + 70, y - 8, { size: 13, align: 'center', color: full ? '#ffffff' : '#bff8ff', glow: '#4ff0ff', blur: full ? 14 : 6 });
       bar(x, y, 140, 10, lv, full && Math.sin(game.t * 30) > 0 ? '#ffffff' : '#7ff6ff');
       ctx.fillStyle = 'rgba(255,211,107,0.9)';
@@ -5690,9 +5994,12 @@
     const c2 = x + 360;
     text('PHI CÔNG 1 · BÁN CẦU TRÁI', c1, y + 64, { size: 13, color: '#9fc1e0' });
     text('PHI CÔNG 2 · BÁN CẦU PHẢI', c2, y + 64, { size: 13, color: '#9fc1e0' });
-    const l1 = [['A / D', 'di chuyển'], ['W', 'lướt né (20 năng lượng)'], ['S', 'giữ để đỡ đòn'], ['F', 'đấm trái']];
     const def = game.titan ? game.titan.def : curDef();
-    const l2 = def.missiles
+    // Bastion đảo tay đấm: F tay phải, J tay trái (búa K là tay trái)
+    const l1 = [['A / D', 'di chuyển'], ['W', 'lướt né (20 năng lượng)'], ['S', 'giữ để đỡ đòn'], ['F', def.shells ? 'đấm phải' : 'đấm trái']];
+    const l2 = def.shells
+      ? [['J', 'đấm trái'], ['I', 'búa phản lực: bay lên phang búa xuống (25 NL)'], ['K', 'búa móc tay trái — đòn nặng, tầm xa'], ['L', 'giữ để nạp, thả để phóng 2 tên lửa lớn']]
+      : def.missiles
       ? [['J', 'đấm phải'], ['I', 'đập phản lực: bay lên nện đầu quái (25 NL)'], ['K', 'lưỡi kép cổ tay — chém nhanh'], ['L', 'giữ đủ 2s rồi thả: phóng 6 tên lửa (thả sớm = hủy)']]
       : [['J', 'đấm phải'], ['I', 'cú đấm phản lực (25 năng lượng)'], ['K', 'kiếm xích — đòn nặng, tầm xa'], ['L', 'giữ để nạp pháo plasma, thả để bắn']];
     l1.forEach((l, i) => {
@@ -5704,7 +6011,7 @@
       text(l[1], c2 + 40, y + 90 + i * 22, { size: 15, weight: 500 });
     });
     const tips = [
-      'ĐỒNG BỘ: hai phi công ra đòn gần như cùng lúc → sát thương ×2; đánh trúng quái thì Link +12.',
+      `ĐỒNG BỘ (mỗi ${String(SYNC_COOLDOWN).replace('.', ',')} s một lần): hai phi công ra đòn cùng lúc → đòn mạnh hơn; trúng quái: F+J Link +${SYNC_LINK_LIGHT}, có đòn nặng (F+K…) +${SYNC_LINK_HEAVY}.`,
       `LINK 100%: giữ 5 giây — đồng bộ F + J trong lúc đó để tung ${def.ultName}.`,
       'Đòn nặng (K, L nạp đầy, đồng bộ) trúng lúc quái đang gồng (!) → PHẢN ĐÒN.',
     ];
@@ -7361,6 +7668,7 @@
     const jet = mv('jet');
     const cannon = mv('cannon');
     const tempest = !!def.missiles;
+    const bastion = !!def.shells;
     return [
       {
         clip: 'walk', key: 'A / D', name: 'DI CHUYỂN', pilot: 'PHI CÔNG 1',
@@ -7378,38 +7686,44 @@
         stats: [['GIẢM SÁT THƯƠNG', '65%'], ['NĂNG LƯỢNG', BLOCK_COST + ' / đòn'], ['HẾT NĂNG LƯỢNG', 'vỡ thế thủ']],
       },
       {
-        clip: 'jab', key: 'F', name: 'ĐẤM TRÁI', pilot: 'PHI CÔNG 1', dmg: jab.dmg, ...timing(jab),
-        desc: 'Đòn nhanh nhất. Bấm cùng lúc với J để ĐỒNG BỘ: sát thương ×2, đánh trúng quái thì Link +12.',
+        clip: 'jab', key: 'F', name: bastion ? 'ĐẤM PHẢI' : 'ĐẤM TRÁI', pilot: 'PHI CÔNG 1', dmg: jab.dmg, ...timing(jab),
+        desc: bastion
+          ? `Bastion đấm F bằng TAY PHẢI. Bấm cùng lúc với J để ĐỒNG BỘ (Link +${SYNC_LINK_LIGHT} nếu trúng); cùng lúc với búa K (tay trái) thì Link +${SYNC_LINK_HEAVY}. Đấm liên tiếp yếu dần.`
+          : `Đòn nhanh nhất. Bấm cùng lúc với J để ĐỒNG BỘ (Link +${SYNC_LINK_LIGHT} nếu trúng); cùng lúc với K thì Link +${SYNC_LINK_HEAVY}. Đấm liên tiếp yếu dần.`,
         stats: [['SÁT THƯƠNG', String(jab.dmg)], ['TẦM ĐÁNH', jab.range + ' đv'], ['ĐẨY LÙI', String(jab.kb)], ['ĐỒNG BỘ F + J', '×' + String(SYNC_LIGHT).replace('.', ',') + ' · chờ ' + String(SYNC_COOLDOWN).replace('.', ',') + 's']],
       },
       {
-        clip: 'hook', key: 'J', name: 'ĐẤM PHẢI', pilot: 'PHI CÔNG 2', dmg: hook.dmg, ...timing(hook),
-        desc: 'Đòn tay phải mạnh hơn đấm trái một chút. Kết hợp với F trong cửa sổ đồng bộ.',
+        clip: 'hook', key: 'J', name: bastion ? 'ĐẤM TRÁI' : 'ĐẤM PHẢI', pilot: 'PHI CÔNG 2', dmg: hook.dmg, ...timing(hook),
+        desc: bastion ? 'Bastion đấm J bằng TAY TRÁI (cùng tay với búa K). Kết hợp với F trong cửa sổ đồng bộ.' : 'Đòn tay phải mạnh hơn đấm trái một chút. Kết hợp với F trong cửa sổ đồng bộ.',
         stats: [['SÁT THƯƠNG', String(hook.dmg)], ['TẦM ĐÁNH', hook.range + ' đv'], ['ĐẨY LÙI', String(hook.kb)], ['CỬA SỔ ĐỒNG BỘ', fmtS(SYNC_WINDOW)]],
       },
       {
-        clip: 'blade', key: 'K', name: tempest ? 'LƯỠI KÉP CỔ TAY' : 'KIẾM XÍCH', pilot: 'PHI CÔNG 2', dmg: blade.dmg, heavy: true, ...timing(blade),
-        desc: tempest ? 'Hai lưỡi bật ra từ cổ tay, chém nhanh và làm quái choáng. Đòn nặng: dùng phản đòn được.' : 'Kiếm xích tầm xa, chém nặng. Đòn nặng: trúng lúc quái đang gồng (!) sẽ phản đòn.',
+        clip: 'blade', key: 'K', name: bastion ? 'BÚA MÓC LÊN' : tempest ? 'LƯỠI KÉP CỔ TAY' : 'KIẾM XÍCH', pilot: 'PHI CÔNG 2', dmg: blade.dmg, heavy: true, ...timing(blade),
+        desc: bastion ? `Tay trái hóa búa thủy lực, móc mạnh từ dưới lên, tầm cao và xa. Đòn nặng: trúng khi dấu ! hiện sẽ phản đòn. Ghép với F (tay phải) để đồng bộ (Link +${SYNC_LINK_HEAVY}).` : tempest ? 'Hai lưỡi bật ra từ cổ tay, chém nhanh và làm quái choáng. Đòn nặng: dùng phản đòn được.' : 'Kiếm xích tầm xa, chém nặng. Đòn nặng: trúng lúc quái đang gồng (!) sẽ phản đòn.',
         stats: [['SÁT THƯƠNG', String(blade.dmg)], ['TẦM ĐÁNH', blade.range + ' đv'], ['ĐẨY LÙI', String(blade.kb)], ['ĐẶC TÍNH', 'đòn nặng · phản đòn']],
       },
       tempest ? {
         clip: 'cannon', key: 'L (giữ 2s)', name: '6 TÊN LỬA', pilot: 'PHI CÔNG 2', dmg: 6 * MISSILE_DMG, ...timing(cannon),
         desc: 'Giữ L đủ 2 giây để khóa mục tiêu rồi thả: ngực phóng 6 tên lửa tự dẫn. Thả sớm là hủy.',
         stats: [['SÁT THƯƠNG', `6 × ${MISSILE_DMG}`], ['NĂNG LƯỢNG', `${CHARGE_MIN} → ${CHARGE_MAX}`], ['THỜI GIAN KHÓA', fmtS(MISSILE_CHARGE)], ['NẠP LẠI', fmtS(MISSILE_RELOAD)]],
+      } : bastion ? {
+        clip: 'cannon', key: 'L (giữ)', name: 'TÊN LỬA KÉP', pilot: 'PHI CÔNG 2', dmg: 2 * (SHELL_DMG.base + SHELL_DMG.full), ...timing(cannon),
+        desc: 'Giữ để nạp, thả để hai pháo vai cùng phóng hai tên lửa lớn tự dẫn. Nạp càng lâu càng mạnh, từ 60% là đòn nặng.',
+        stats: [['SÁT THƯƠNG', `2 × ${SHELL_DMG.base} → 2 × ${SHELL_DMG.base + SHELL_DMG.full}`], ['NĂNG LƯỢNG', `${CHARGE_MIN} → ${CHARGE_MAX}`], ['NẠP TỐI THIỂU', fmtS(CHARGE_LOCK)], ['NẠP ĐẦY', fmtS(CHARGE_TIME)]],
       } : {
         clip: 'cannon', key: 'L (giữ)', name: 'PHÁO PLASMA', pilot: 'PHI CÔNG 2', dmg: 52, ...timing(cannon),
         desc: 'Giữ để nạp, thả để bắn. Nạp càng lâu càng mạnh. Từ 60% là đòn nặng. Trúng đòn khi đang nạp thì mất phát bắn.',
         stats: [['SÁT THƯƠNG', '12 → 52'], ['NĂNG LƯỢNG', `${CHARGE_MIN} → ${CHARGE_MAX}`], ['NẠP TỐI THIỂU', fmtS(CHARGE_LOCK)], ['NẠP ĐẦY', fmtS(CHARGE_TIME)]],
       },
       {
-        clip: 'special', key: 'I', name: tempest ? 'ĐẬP PHẢN LỰC' : 'ĐẤM PHẢN LỰC', pilot: 'PHI CÔNG 2', dmg: jet.dmg, heavy: true, ...timing(jet),
-        desc: tempest ? 'Gồng rồi bay lên bằng thruster, nện thẳng xuống đầu quái. Trúng đòn khi đang gồng thì mất chiêu.' : 'Động cơ khuỷu tay mồi lửa, Titan lao tới giáng đòn. Quái trong tầm thì chắc chắn trúng. Trúng đòn khi đang gồng thì mất chiêu.',
+        clip: 'special', key: 'I', name: bastion ? 'BÚA PHẢN LỰC' : tempest ? 'ĐẬP PHẢN LỰC' : 'ĐẤM PHẢN LỰC', pilot: 'PHI CÔNG 2', dmg: jet.dmg, heavy: true, ...timing(jet),
+        desc: bastion ? 'Ba lô phản lực đưa Titan bay lên rồi búa tay phải phang thẳng xuống đầu quái. Trúng đòn khi đang gồng thì mất chiêu.' : tempest ? 'Gồng rồi bay lên bằng thruster, nện thẳng xuống đầu quái. Trúng đòn khi đang gồng thì mất chiêu.' : 'Động cơ khuỷu tay mồi lửa, Titan lao tới giáng đòn. Quái trong tầm thì chắc chắn trúng. Trúng đòn khi đang gồng thì mất chiêu.',
         stats: [['SÁT THƯƠNG', String(jet.dmg)], ['NĂNG LƯỢNG', String(jet.energy)], ['TẦM CHẮC TRÚNG', Math.round(SPECIAL_RANGE) + ' đv'], ['ĐẶC TÍNH', 'đòn nặng · phản đòn']],
       },
-      tempest ? {
-        clip: 'ultimate', key: 'F+J', name: def.ultName, pilot: 'HAI PHI CÔNG · KHI LINK 100%', dmg: 96,
-        desc: 'Khi Link đạt 100% (giữ được 5 giây), đồng bộ F + J để gọi 6 tên lửa vệ tinh rơi xuống quái.',
-        stats: [['SÁT THƯƠNG', '6 × 16'], ['ĐẨY LÙI CUỐI', '700'], ['ĐIỀU KIỆN', 'Link 100%'], ['THỜI GIAN GIỮ LINK', fmtS(LINK_HOLD)]],
+      tempest || bastion ? {
+        clip: 'ultimate', key: 'F+J', name: def.ultName, pilot: 'HAI PHI CÔNG · KHI LINK 100%', dmg: bastion ? SALVO.n * SALVO.dmg : 96,
+        desc: bastion ? 'Khi Link đạt 100% (giữ được 5 giây), đồng bộ để hai pháo vai luân phiên phóng loạt tên lửa: vọt lên trời kéo vệt khói trắng dài rồi bổ nhào xuống quái.' : 'Khi Link đạt 100% (giữ được 5 giây), đồng bộ F + J để gọi 6 tên lửa vệ tinh rơi xuống quái.',
+        stats: bastion ? [['SÁT THƯƠNG', `${SALVO.n} × ${SALVO.dmg}`], ['ĐẨY LÙI CUỐI', String(SALVO.lastKb)], ['ĐIỀU KIỆN', 'Link 100%'], ['THỜI GIAN GIỮ LINK', fmtS(LINK_HOLD)]] : [['SÁT THƯƠNG', '6 × 16'], ['ĐẨY LÙI CUỐI', '700'], ['ĐIỀU KIỆN', 'Link 100%'], ['THỜI GIAN GIỮ LINK', fmtS(LINK_HOLD)]],
       } : {
         clip: 'ultimate', key: 'F+J', name: def.ultName, pilot: 'HAI PHI CÔNG · KHI LINK 100%', dmg: 98,
         desc: 'Khi Link đạt 100% (giữ được 5 giây), đồng bộ F + J để bắn chùm tia từ lò phản ứng ngực suốt 1,5 giây.',
@@ -7759,13 +8073,16 @@
     dim(0.62);
     text('CHỌN TITAN', W / 2, 70, { size: 40, align: 'center', color: '#e8fbff', glow: '#4ff0ff', blur: 20, weight: 900 });
     text(`${modeDef().name}${game.mode === 'duel' ? ` · ${WAVES[game.duel.kaiju].name} · ${DIFFS[game.duel.diff].name}` : ''} — chọn khung giáp cho hai phi công`, W / 2, 98, { size: 15, align: 'center', weight: 500, color: modeDef().color });
-    const cw = 470;
+    // Thẻ co theo số Titan để 3 thẻ vừa khung 1280px; 2 thẻ giữ bố cục rộng cũ.
+    const gap = TITANS.length > 2 ? 18 : 30;
+    const cw = Math.min(470, Math.floor((W - 60 - (TITANS.length - 1) * gap) / TITANS.length));
+    const wide = cw >= 470;
     const ch = 500;
     const top = 124;
     const STAT = [['armor', 'GIÁP'], ['speed', 'TỐC ĐỘ'], ['power', 'HỎA LỰC'], ['energy', 'NĂNG LƯỢNG']];
     TITANS.forEach((def, i) => {
       const sel = i === game.pick;
-      const x = W / 2 + (i - (TITANS.length - 1) / 2) * (cw + 30) - cw / 2;
+      const x = W / 2 + (i - (TITANS.length - 1) / 2) * (cw + gap) - cw / 2;
       const acc = def.pal.front.accent;
       ctx.save();
       ctx.globalAlpha = sel ? 1 : 0.55;
@@ -7783,7 +8100,7 @@
       // khung avatar
       const ax = x + 16;
       const ay = top + 16;
-      const aw = 180;
+      const aw = wide ? 180 : 132;
       const ah = 300;
       const ag = ctx.createLinearGradient(0, ay, 0, ay + ah);
       ag.addColorStop(0, 'rgba(30,50,80,0.6)');
@@ -7796,11 +8113,12 @@
       ctx.clip();
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.fillRect(ax, ay + ah - 26, aw, 26);
-      drawTitanAvatar(def, ax + aw / 2 - 4, ay + ah - 22, 0.92, sel);
+      drawTitanAvatar(def, ax + aw / 2 - 4, ay + ah - 22, wide ? 0.92 : 0.8, sel);
       ctx.restore();
       // tên + vai trò
-      const tx = ax + aw + 18;
-      text(def.name.replace('EYERIM ', ''), tx, top + 50, { size: 30, weight: 900, color: '#ffffff', glow: sel ? acc : null, blur: 12 });
+      const tx = ax + aw + (wide ? 18 : 12);
+      const barStep = Math.min(47, Math.floor((x + cw - 16 - tx) / 5));
+      text(def.name.replace('EYERIM ', ''), tx, top + 50, { size: wide ? 30 : 26, weight: 900, color: '#ffffff', glow: sel ? acc : null, blur: 12 });
       text('EYERIM · TITAN-FRAME', tx, top + 70, { size: 11, color: '#7f9bb8' });
       wrapText(def.role, tx, top + 96, cw - aw - 50, 16, { size: 12, color: acc });
       // chỉ số
@@ -7809,19 +8127,19 @@
         text(label, tx, y, { size: 12, color: '#9fc1e0' });
         for (let n = 0; n < 5; n++) {
           ctx.fillStyle = n < def.stats[k] ? acc : 'rgba(255,255,255,0.1)';
-          rr(tx + n * 47, y + 7, 42, 9, 3);
+          rr(tx + n * barStep, y + 7, barStep - 5, 9, 3);
           ctx.fill();
         }
       });
       // thông số kỹ thuật: chiều cao + khối lượng (hư cấu EyeRim, chỉ hiển thị)
       [['CHIỀU CAO', `${def.heightM} m`], ['KHỐI LƯỢNG', `${def.massTonnes.toLocaleString('vi-VN')} tấn`]].forEach(([label, value], j) => {
-        const sx = tx + j * 118;
+        const sx = tx + j * (wide ? 118 : 100);
         text(label, sx, top + 280, { size: 11, color: '#9fc1e0' });
         text(value, sx, top + 300, { size: 17, weight: 800, color: '#efe3cc' });
       });
       text(`HP ${def.hp} · TỐC ĐỘ ${def.speed}`, tx, top + 322, { size: 12, weight: 500, color: '#cfe0f0' });
       // mô tả + vũ khí
-      wrapText(def.desc, x + 20, top + 346, cw - 40, 19, { size: 14, weight: 500, color: '#cfe0f0' });
+      wrapText(def.desc, x + 20, top + 346, cw - 40, wide ? 19 : 17, { size: wide ? 14 : 13, weight: 500, color: '#cfe0f0' });
       text('VŨ KHÍ', x + 20, top + 404, { size: 12, color: '#7f9bb8' });
       [...def.weapons, ['★', 'Link 100%: ' + def.ultName]].forEach(([key, w], j) => {
         const y = top + 424 + j * 22;
@@ -7829,7 +8147,7 @@
         ctx.fillStyle = 'rgba(255,211,107,0.15)';
         ctx.fill();
         text(key, x + 31, y, { size: 13, align: 'center', color: '#ffd36b' });
-        text(w, x + 52, y, { size: 14, weight: 500 });
+        text(w, x + 52, y, { size: wide ? 14 : 12, weight: 500 });
       });
       ctx.restore();
       if (sel) text('▼', x + cw / 2, top - 6, { size: 16, align: 'center', color: acc, alpha: 0.6 + 0.4 * Math.sin(game.t * 6) });
@@ -8338,6 +8656,7 @@
     if (game.kaiju) drawKaiju(game.kaiju);
     if (game.state !== 'select' && game.state !== 'duel' && game.state !== 'training') drawTitan(game.titan);
     drawStrikes();
+    drawSalvo();
     drawBeam();
     drawProjectiles();
     drawRings();
@@ -8410,6 +8729,10 @@
   // Dùng chung cho trang mẫu titans/*.html và màn Huấn luyện phi công trong game.
   const CLIPS = ['idle', 'walk', 'guard', 'dash', 'jab', 'hook', 'blade', 'cannon', 'special', 'ultimate', 'celebrate', 'stagger'];
   function drawTitanClip(defIn, clip, time, facing, zoom, bx, by, bw, bh) {
+    if (defIn.id === 'bastion') {
+      if (window.EyeRimBastion) window.EyeRimBastion.drawFramed(ctx, clip, Math.max(0, time), facing, zoom, bx, by, bw, bh);
+      return;
+    }
     const saved = { t: game.t, cam: game.cam, titan: game.titan, kaiju: game.kaiju };
     const T = makeTitan(defIn);
     const def = T.def;
@@ -8496,6 +8819,13 @@
       fx.particles.length = 0; fx.shake = 0;
     }
   }
+
+  // Hàm dùng chung cho titans/bastion.js khi chạy trong game (trang xưởng dùng TitanGallery).
+  window.EyeRimCore = {
+    staggerPreview,
+    names: {},
+    specs: { vanguard: { crown: TITANS[0].model.crown, sole: TITANS[0].model.sole, scale: titanDrawScale({ def: TITANS[0] }) } },
+  };
 
   if (titanGallery) {
     window.TitanGallery = {

@@ -42,6 +42,8 @@ Kỷ lục lưu trong `localStorage` của trình duyệt.
 | | | `I` | cú đấm phản lực (25 năng lượng) |
 | `F` | đấm trái | | |
 
+Bảng trên theo Vanguard. Tempest và Bastion dùng cùng phím, khác vũ khí K/L/I (xem mục Ba Titan). **Bastion đảo tay đấm:** `F` đấm tay phải, `J` đấm tay trái.
+
 `H` hướng dẫn · `Esc`/`P` (hoặc nút ⏸ góc phải dưới) mở menu tạm dừng: tiếp tục, cài đặt âm thanh, hướng dẫn, chơi lại, thoát về menu chính · `M` bật/tắt tiếng
 
 **Cài đặt âm thanh** (mục 05 ở menu chính hoặc trong menu tạm dừng): chỉnh riêng âm lượng nhạc nền và hiệu ứng theo 10 nấc, bật/tắt tiếng. Cài đặt lưu trong trình duyệt. Các menu bấm được bằng chuột.
@@ -76,6 +78,16 @@ Từ đợt thứ hai trở đi chỉ chiếu cảnh 3. Bấm `Enter`, `Space`, 
 
 Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp II, thêm phun axit và lao húc) và **Leviathrax** (Cấp III, thêm tiếng gầm hút Link). Khi máu xuống dưới 50%, quái vật vào trạng thái *cuồng nộ* và đánh nhanh hơn.
 
+## Ba Titan
+
+| Titan | Máu | Tốc độ | K | L | I | Chiêu đặc biệt |
+|---|---:|---:|---|---|---|---|
+| Vanguard | 150 | 270 | Kiếm xích tầm xa | Pháo plasma nạp lực | Đấm phản lực, lao tới chắc trúng | Xung lò phản ứng |
+| Tempest | 125 | 340 | Lưỡi kép cổ tay, nhanh | 6 tên lửa (giữ đủ 2 s) | Đập phản lực từ trên xuống | Mưa tên lửa vệ tinh |
+| Bastion | 165 | 235 | Búa móc từ dưới lên, mạnh và xa | Tên lửa kép: nạp lực, 2 tên lửa lớn tự dẫn | Búa phản lực: bay lên phang búa xuống | Loạt pháo kép |
+
+Bastion **đảo tay đấm**: F đấm tay phải, J đấm tay trái (cùng tay với búa K), nên F+K vẫn là hai phi công đánh hai tay khác nhau. Bastion trâu và đánh đau nhất nhưng chậm, hồi năng lượng chậm hơn (×0,8): hợp lối chơi đứng tấn, đỡ đòn và phản đòn bằng búa.
+
 ## Thông số kỹ thuật Titan
 
 Thông số hư cấu của EyeRim, không phải số liệu chính thức của nhân vật trong phim.
@@ -84,8 +96,9 @@ Thông số hư cấu của EyeRim, không phải số liệu chính thức củ
 |---|---:|---:|---|
 | Vanguard | 80 m | 2.400 tấn | Giáp nặng, lò phản ứng ngực, pháo plasma biến hình |
 | Tempest | 80 m | 1.850 tấn | Khung nhẹ cơ động, lưỡi kép, bệ phóng tên lửa |
+| Bastion | 84 m | 2.950 tấn | Pháo binh hạng nặng: búa thủy lực, hai pháo vai phóng tên lửa lớn |
 
-Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, không tính vây lưng. Bộ vẽ thu/phóng đồng nhất cả hai trục để hai Titan cao bằng nhau mà không đổi tỷ lệ đầu, thân hay tay chân. Thông số xuất hiện trên thẻ chọn Titan và trang xem mẫu; không thay đổi HP, tốc độ hay sát thương.
+Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, không tính vây lưng. Bộ vẽ thu/phóng đồng nhất cả hai trục để mọi Titan cao bằng nhau mà không đổi tỷ lệ đầu, thân hay tay chân. Thông số xuất hiện trên thẻ chọn Titan và trang xem mẫu; không thay đổi HP, tốc độ hay sát thương.
 
 ## Nhận diện ALumiEye
 

@@ -125,8 +125,8 @@ function makeSkilledBot({ reaction = 0.2, counterRate = 0.7, dodgeRate = 0.8 } =
     if (T.energy >= 55 && rand() < 0.04) { tap('KeyI'); return; }
     // đồng bộ K+F (đòn nặng: Link +12) là chính, thỉnh thoảng F+J
     if (syncReady && rand() < 0.6) {
-      const second = rand() < 0.75 ? 'KeyK' : 'KeyJ';
-      press('KeyF'); press(second); release('KeyF'); release(second);
+      const pair = rand() < 0.75 ? ['KeyF', 'KeyK'] : ['KeyF', 'KeyJ'];
+      pair.forEach(press); pair.forEach(release);
       return;
     }
     const r = rand();

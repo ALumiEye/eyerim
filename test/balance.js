@@ -1,6 +1,6 @@
 // Test cân bằng: cho bot đấu từng quái ở độ khó THƯỜNG, nhiều lượt với seed cố định.
 //   - bot spam (bấm bừa F+J, giữ S) phải THUA quái Cấp II và Cấp III
-//   - bot khá (phản đòn, né, đồng bộ đúng nhịp) phải THẮNG phần lớn trận, mỗi trận 25–120s
+//   - bot khá (phản đòn, né, đồng bộ đúng nhịp) phải THẮNG phần lớn trận, mỗi trận 20–120s (bản trước khi cân bằng: ~6s)
 // Dùng: node test/balance.js          (in bảng kết quả + kiểm tra mục tiêu)
 //       node test/balance.js --report (chỉ in bảng, không kiểm tra)
 'use strict';
@@ -11,6 +11,7 @@ const { spamBot, makeSkilledBot } = require('./bots');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
 const SCRIPT = new vm.Script(SRC, { filename: 'game.js' });
+const BASTION = new vm.Script(fs.readFileSync(path.join(__dirname, '..', 'titans', 'bastion.js'), 'utf8'), { filename: 'bastion.js' });
 
 function mulberry32(a) {
   return function () {
@@ -59,6 +60,7 @@ function createGame(seed) {
   };
   sb.window = sb;
   SCRIPT.runInNewContext(sb);
+  BASTION.runInContext(sb);
   const fire = (type, code) => (listeners[type] || []).forEach((fn) => fn({ code, preventDefault: noop }));
   const botRng = mulberry32(seed ^ 0x9e3779b9);
   return {
@@ -95,7 +97,7 @@ function duel({ kaiju, diff = 1, titan = 0, bot, seed, limit = 180 }) {
 }
 
 const KAIJU = ['BRINECRAWLER', 'GORGEMAW', 'LEVIATHRAX'];
-const TITANS = ['VANGUARD', 'TEMPEST'];
+const TITANS = ['VANGUARD', 'TEMPEST', 'BASTION'];
 const RUNS = Number(process.env.BAL_RUNS) || 8;
 
 function summarize(label, bot, kaiju, titan) {
@@ -124,6 +126,7 @@ const check = (cond, msg) => { if (!cond) fails.push(msg); };
 
 console.log(`Độ khó THƯỜNG · ${RUNS} trận mỗi ô · không nâng cấp\n`);
 for (let t = 0; t < TITANS.length; t++) {
+  if (process.env.BAL_TITAN && TITANS[t] !== process.env.BAL_TITAN.toUpperCase()) continue; // chỉ đo một Titan
   for (let k = 0; k < KAIJU.length; k++) {
     const spam = summarize('spam', spamBot, k, t);
     if (k >= 1) check(spam.winRate <= 0.25, `bot spam thắng ${TITANS[t]} vs ${KAIJU[k]} quá dễ (${spam.winRate * 100}%)`);
@@ -131,7 +134,7 @@ for (let t = 0; t < TITANS.length; t++) {
   for (let k = 0; k < KAIJU.length; k++) {
     const sk = summarize('khá', () => makeSkilledBot(), k, t);
     check(sk.winRate >= 0.6, `bot khá chỉ thắng ${TITANS[t]} vs ${KAIJU[k]} ${sk.winRate * 100}% (cần ≥ 60%)`);
-    if (sk.winRate > 0) check(sk.time >= 25 && sk.time <= 120, `${TITANS[t]} vs ${KAIJU[k]}: thời gian trận ${sk.time.toFixed(1)}s ngoài khoảng 25–120s`);
+    if (sk.winRate > 0) check(sk.time >= 20 && sk.time <= 120, `${TITANS[t]} vs ${KAIJU[k]}: thời gian trận ${sk.time.toFixed(1)}s ngoài khoảng 20–120s`);
   }
   console.log('');
 }

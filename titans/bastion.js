@@ -1,11 +1,12 @@
-/* Bastion — bộ vẽ trong xưởng, không thay đổi roster chiến đấu.
+/* Bastion — bộ vẽ dùng chung cho xưởng (titans/bastion.html) và trận đấu (src/game.js).
  * Giáp và pháo bám năm ảnh người dùng; cụm lưng theo ảnh tham chiếu thứ 5.
  * Góc ngang 3/4, tư thế sẵn sàng.
  * Giữ chung các ô chiêu S/W/F/J/K/L/I với Vanguard và Tempest.
  */
 (() => {
   'use strict';
-  const base = window.TitanGallery;
+  // Trang xưởng: TitanGallery; trong game: EyeRimCore (src/game.js nạp trước file này).
+  const base = window.TitanGallery || window.EyeRimCore;
   if (!base) return;
   const normalPalette = {
     edge: '#172125', frame: '#243036', dark: '#34413f', deep: '#404d48',
@@ -22,7 +23,7 @@
   let P = normalPalette;
   const names = {
     idle: 'Đứng nghỉ', walk: 'Bước đi', guard: 'S · Đỡ đòn', dash: 'W · Lướt né',
-    jab: 'F · Đấm trái', hook: 'J · Đấm phải', blade: 'K · Búa móc lên', cannon: 'L · Tên lửa kép',
+    jab: 'F · Đấm phải', hook: 'J · Đấm trái', blade: 'K · Búa móc lên', cannon: 'L · Tên lửa kép',
     special: 'I · Búa phản lực', ultimate: 'Loạt pháo kép', celebrate: 'Ăn mừng', stagger: 'Trúng đòn',
   };
   // Cùng nhịp F/J của Vanguard; khoảng nghỉ chỉ dành cho vòng xem mẫu.
@@ -472,8 +473,8 @@
     bolt(12, -515, 2); bolt(49, -502, 1.7);
     c.restore();
   }
-  function draw(target, clip = 'idle', time = 0, facing = 1, zoom = 1) {
-    c = target.getContext('2d');
+  // Tính tư thế của một động tác tại thời điểm time (dùng chung cho xưởng và trận đấu).
+  function poseAt(clip, time) {
     const t = ((time % 6) + 6) % 6, cycle = t % 2.4;
     const walk = clip === 'walk', guard = clip === 'guard';
     const stride = walk ? Math.sin(t * 4.8) : 0;
@@ -488,12 +489,25 @@
     const reaction = clip === 'stagger' ? staggerPose(t) : null;
     P = reaction && reaction.flash ? hitPalette : normalPalette;
     const celebration = clip === 'celebrate' ? celebrationPose(time) : null;
+    return { clip, time, t, cycle, walk, guard, stride, dash, punch, hammer, slam, firing, deploy, flash, flash2, reaction, celebration };
+  }
+  function draw(target, clip = 'idle', time = 0, facing = 1, zoom = 1) {
+    c = target.getContext('2d');
+    const p = poseAt(clip, time);
+    P = p.reaction && p.reaction.flash ? hitPalette : normalPalette;
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, target.width, target.height);
     rect(0, 0, target.width, target.height, P.cream);
     // Cùng camera/zoom của drawTitanClip; chuẩn hóa đồng nhất X/Y tới đỉnh đầu.
     const scale = Math.min(target.width / 760, target.height / 540) * zoom * modelScale;
     const gx = target.width * .46, gy = target.height * .9;
     c.translate(gx, gy); c.scale(scale * facing, scale);
+    stage(p, facing);
+    body(p, {});
+    c.restore();
+  }
+  // Nền xưởng: bóng đổ, vạch tầm khóa I, vòng bụi tiếp đất.
+  function stage(p, facing) {
+    const { slam, celebration } = p;
     if (slam) {
       // Camera rộng cố định riêng khi diễn I: đủ đường bay 2H, không cắt đỉnh pháo/búa.
       c.scale(.72, .72); c.translate(-440, 0);
@@ -519,12 +533,19 @@
         c.restore();
       }
     }
+  }
+  // Thân Titan. Gốc tọa độ: mặt đất dưới chân, đơn vị mô hình Bastion.
+  // opts.inPlace (trong trận): vị trí bay/nhảy do game điều khiển, không vẽ tên lửa minh họa của xưởng.
+  function body(p, opts) {
+    const { clip, time, t, cycle, walk, guard, stride, dash, punch, hammer, flash, flash2, deploy, reaction, celebration } = p;
+    const slam = p.slam && opts.inPlace ? { ...p.slam, x: 0, y: 0 } : p.slam;
+    void walk; void cycle;
     c.translate(0, -sole);
     const crouch = celebration ? celebration.crouch : reaction ? reaction.crouch : 0;
     const footSpread = celebration ? celebration.feet * 29 : 0;
     if (celebration) c.scale(celebration.spin, 1);
     c.translate((slam ? slam.x : 0) + dash * 24 - flash * 10 - flash2 * 10,
-      (slam ? slam.y : celebration ? -celebration.air + crouch : reaction ? crouch + Math.sin(t * 2) * 2.5 : hammer ? 0 : Math.sin(t * 2) * 1.1)
+      (slam ? slam.y : celebration ? (opts.inPlace ? 0 : -celebration.air) + crouch : reaction ? crouch + Math.sin(t * 2) * 2.5 : hammer ? 0 : Math.sin(t * 2) * 1.1)
       + Math.abs(stride) * 6 + (guard ? 13 : 0) + deploy * 5);
     c.rotate(dash * .12);
     if (reaction) {
@@ -548,22 +569,25 @@
     // Tay trái ở phía xa: cả gốc vai và cánh tay phải nằm sau giáp ngực/đầu.
     if (hammer) arm(38, -428, hammer.upper, hammer.lower, true, 0, hammer.morph, hammer.extension);
     else arm(38, -428,
-      celebration ? celebration.farUpper : reaction ? reaction.far.upper : 1.14 - stride * .12 - (clip === 'jab' ? punch * 1.1 : 0),
-      celebration ? celebration.farLower : reaction ? reaction.far.lower : -.23 - (guard ? .9 : 0) - (clip === 'jab' ? punch * .12 : 0), false, punch);
+      celebration ? celebration.farUpper : reaction ? reaction.far.upper : 1.14 - stride * .12 - (clip === 'hook' ? punch * 1.1 : 0),
+      celebration ? celebration.farLower : reaction ? reaction.far.lower : -.23 - (guard ? .9 : 0) - (clip === 'hook' ? punch * .12 : 0), false, clip !== 'jab' ? punch : 0);
     shoulder(37, -445, false);
     torso();
     if (!reaction) leg(30, -263, 58 - stride * 35 + dash * 12 + footSpread, -31 - Math.max(0, stride) * 24 - crouch, true, -stride * 7 + crouch * .45);
     if (!reaction) pelvis();
     head(0);
-    const nearPunch = clip !== 'jab' ? punch : 0;
+    // Bastion đảo tay đấm: F (jab, phi công 1) là tay phải ở phía gần, J (hook, phi công 2) là tay trái ở phía xa.
+    // Nhờ vậy F + K (búa tay trái) là hai phi công đánh hai tay khác nhau → đồng bộ hợp lệ.
+    // Trong trận, F có thể ra cùng lúc với búa K (đồng bộ): opts.jabTime cho tay phải đấm song song với búa tay trái.
+    const nearPunch = opts.jabTime != null ? punchPose('jab', opts.jabTime) : clip !== 'hook' ? punch : 0;
     arm(-48, -422,
       slam ? slam.upper : celebration ? celebration.nearUpper : reaction ? reaction.near.upper : 1.86 + stride * .12 - nearPunch * .95 - (guard ? .45 : 0),
       slam ? slam.lower : celebration ? celebration.nearLower : reaction ? reaction.near.lower : .48 - nearPunch * .55 - (guard ? 1.55 : 0),
-      true, punch, slam ? slam.morph : 0, slam ? slam.extension : 0);
+      true, opts.jabTime != null ? nearPunch : punch, slam ? slam.morph : 0, slam ? slam.extension : 0);
     shoulder(-51, -444, true);
     // Khẩu gần nằm ngoài silhouette vai/tay để thân pháo không bị che mất.
     cannon(-157 + deploy * 115, -455 - deploy * 157, -.07 + deploy * 1.6, flash * 8, flash, true);
-    if (clip === 'cannon') for (const projectile of missileVolley(time)) missile(projectile);
+    if (clip === 'cannon' && !opts.inPlace) for (const projectile of missileVolley(time)) missile(projectile);
     if (slam && slam.impact > 0) {
       c.save(); c.globalAlpha *= slam.impact;
       // Vệt va chạm cạnh đầu búa và bụi tiếp đất; không đổi lớp vai/ngực.
@@ -574,13 +598,38 @@
       line([[64, 1], [88, -14], [85, 3], [109, 8]], P.shadow, 3);
       c.restore();
     }
-    c.restore();
   }
+  // Vẽ trong trận / màn chọn: ctx đã đặt gốc tại mặt đất dưới chân, scale theo mô hình Bastion.
+  function drawInGame(ctx, clip, time, opts = {}) {
+    c = ctx;
+    const p = poseAt(clip, time);
+    P = opts.hit || (p.reaction && p.reaction.flash && !opts.inPlace) ? hitPalette : normalPalette;
+    c.save();
+    body(p, opts);
+    c.restore();
+    P = normalPalette;
+  }
+  // Vẽ trong khung xem (màn chọn, huấn luyện) với cùng camera của trang xưởng, không tô nền.
+  function drawFramed(ctx, clip, time, facing, zoom, bx, by, bw, bh) {
+    c = ctx;
+    const p = poseAt(clip, time);
+    P = p.reaction && p.reaction.flash ? hitPalette : normalPalette;
+    const scale = Math.min(bw / 760, bh / 540) * zoom * modelScale;
+    c.save();
+    c.translate(bx + bw * .46, by + bh * .9); c.scale(scale * facing, scale);
+    if (p.slam || p.celebration) c.scale(p.slam ? .72 : .82, p.slam ? .72 : .82);
+    if (p.slam) c.translate(-440, 0);
+    body(p, {});
+    c.restore();
+    P = normalPalette;
+  }
+  window.EyeRimBastion = { crown, sole, drawInGame, drawFramed, missile: (ctx, projectile) => { c = ctx; missile(projectile); }, jetSlam, hammerPeriod };
+  if (!window.TitanGallery) return;
   window.TitanGallery = {
     ...base,
     names: { ...base.names, bastion: names },
     punchTimings, punchPose, hammerPose, hammerPeriod, missileVolley, jetSlam, jetSlamPose, celebrationPose, staggerPose,
-    specs: { ...base.specs, bastion: { crown, sole, scale: modelScale, profileZoom: 1.65, label: 'mẫu pháo binh · chưa chốt thông số chiến đấu', note: 'Dáng ngang 3/4 · giáp hạng nặng · hai pháo sau vai.' } },
+    specs: { ...base.specs, bastion: { crown, sole, scale: modelScale, profileZoom: 1.65, label: (base.specs.bastion && base.specs.bastion.label) || '84 m · 2.950 tấn', note: 'Dáng ngang 3/4 · giáp hạng nặng · hai pháo sau vai.' } },
     draw(target, id, ...args) { return id === 'bastion' ? draw(target, ...args) : base.draw(target, id, ...args); },
   };
 })();
