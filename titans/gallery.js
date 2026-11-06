@@ -3,7 +3,7 @@
   'use strict';
   const id = document.body.dataset.titan;
   const tempest = id === 'tempest';
-  const names = {
+  const names = window.TitanGallery?.names?.[id] || {
     idle: 'Đứng nghỉ', walk: 'Bước đi', guard: 'S · Đỡ đòn', dash: 'W · Lướt né',
     jab: 'F · Đấm trái', hook: 'J · Đấm phải',
     blade: tempest ? 'K · Lưỡi kép' : 'K · Kiếm xích',
@@ -20,7 +20,9 @@
   const api = window.TitanGallery;
   if (!api) { $('pose-name').textContent = 'Không tải được bộ vẽ. Hãy mở trang trong thư mục dự án.'; return; }
   const specs = document.createElement('p');
-  specs.textContent = `Thông số EyeRim: ${api.specs[id].label} · chiều cao đến đỉnh đầu, không tính vây lưng.`;
+  specs.textContent = api.specs[id].note
+    ? api.specs[id].note
+    : `Thông số EyeRim: ${api.specs[id].label} · chiều cao đến đỉnh đầu, không tính vây lưng.`;
   document.querySelector('header > div').append(specs);
   function playLabel() { $('play').textContent = playing ? 'Tạm dừng' : 'Tiếp tục'; }
   for (const key of api.clips) {
@@ -54,8 +56,9 @@
       e.preventDefault(); playing = false; time = Math.max(0, time + (e.code === 'ArrowRight' ? 1 : -1) / 60); playLabel(); paint();
     }
   });
-  api.draw($('left'), id, 'idle', 0, -1, 1.65);
-  api.draw($('right'), id, 'idle', 0, 1, 1.65);
+  const profileZoom = api.specs[id].profileZoom || 1.65;
+  api.draw($('left'), id, 'idle', 0, -1, profileZoom);
+  api.draw($('right'), id, 'idle', 0, 1, profileZoom);
   playLabel(); paint();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;

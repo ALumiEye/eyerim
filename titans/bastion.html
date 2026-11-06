@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bastion Titan</title>
+<link rel="icon" href="../assets/favicon.png">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body data-titan="bastion">
+<header><a class="brand" href="../index.html"><img src="../assets/alumieye.png" alt="ALumiEye"></a><div><p class="eyebrow">EYERIM / XƯỞNG CHUYỂN ĐỘNG</p><h1>Bastion</h1><p>Giáp xám ô-liu, vạch đỏ, kính xanh dựng dọc và hai pháo dài sau vai. Mẫu Titan pháo binh — đang dựng riêng trong xưởng, chưa đưa vào game.</p></div><nav aria-label="Chọn Titan"><a href="vanguard.html">Vanguard</a><a href="tempest.html">Tempest</a><a aria-current="page" href="bastion.html">Bastion</a><a href="../index.html">Vào game</a></nav></header>
+<main>
+<section class="workspace" aria-label="Xem chuyển động Titan">
+<div class="stage"><canvas id="hero" width="1200" height="780" aria-label="Bastion với hai pháo sau vai đang thực hiện động tác"></canvas><div class="stage-label"><span id="pose-name">Đứng nghỉ</span><span>MẪU PHÁO BINH · BỘ VẼ RIÊNG TRONG XƯỞNG</span></div></div>
+<aside><h2>Chuyển động</h2><div id="clips" class="clips"></div><div class="transport"><button id="play" type="button">Tạm dừng</button><button id="restart" type="button">Phát lại</button><button id="flip" type="button">Đổi hướng</button></div><label for="speed">Tốc độ <output id="speed-value">1×</output></label><input id="speed" type="range" min="0.25" max="1.5" step="0.25" value="1"><label for="timeline">Thời điểm <output id="time-value">0.00 s</output></label><input id="timeline" type="range" min="0" max="6" step="0.01" value="0"><label for="zoom">Phóng to <output id="zoom-value">1×</output></label><input id="zoom" type="range" min="0.75" max="1.5" step="0.05" value="1"><p class="hint">Chọn động tác để chạy vòng lặp. L phóng hai tên lửa lớn. I bật phản lực từ ba lô, bay lên rồi đập búa tay phải xuống; mốc tầm khóa là 2 lần chiều cao Titan. Đây là mô phỏng trong xưởng, chưa có xử lý trúng đòn trong trận. Kéo thời điểm để xem từng tư thế. Phím cách: phát/dừng; ←/→: lùi/tiến khung hình.</p></aside>
+</section>
+<section class="sheet"><h2>Hai hướng · Toàn thân và bộ pháo</h2><div class="profiles"><figure><canvas id="left" width="600" height="620" aria-label="Bastion hướng trái, đủ hai pháo"></canvas><figcaption>Hướng trái</figcaption></figure><figure><canvas id="right" width="600" height="620" aria-label="Bastion hướng phải, đủ hai pháo"></canvas><figcaption>Hướng phải</figcaption></figure></div></section>
+</main>
+<canvas id="game" hidden></canvas>
+<script>window.__TITAN_GALLERY__ = true;</script>
+<script src="../src/game.js"></script>
+<script src="bastion.js"></script>
+<script src="gallery.js"></script>
+</body></html>

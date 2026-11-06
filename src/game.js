@@ -2933,6 +2933,18 @@
     ctx.restore();
   }
 
+  // Template trúng đòn chung; tọa độ theo khung cơ sở trước BODY_LIFT.
+  const STAGGER_TEMPLATE = {
+    lean: -0.12, crouch: 10,
+    hands: { L: { x: -96, y: -210 }, R: { x: 30, y: -196 } },
+  };
+  function staggerPreview(time) {
+    return { ...STAGGER_TEMPLATE, bodyLift: BODY_LIFT, referenceHeight: 372 + BODY_LIFT, flash: Math.sin(time * 8) > 0.8 };
+  }
+
+  // TEMPEST nút L: đích bàn tay khi bệ ngực mở (khung cơ sở trước BODY_LIFT).
+  const TEMPEST_LAUNCH_ARMS = { R: { x: -38, y: -175, back: 24 }, L: { x: -110, y: -260 } };
+
   function armPose(T, side) {
     const a = T.arms[side];
     const breathe = Math.sin(game.t * 2 + (side === 'L' ? 0 : 1.2)) * 3;
@@ -2946,10 +2958,17 @@
       if (T.def.ult === 'orbital') return side === 'L' ? { x: 30, y: -250 } : { x: 70, y: -450 };
       return side === 'L' ? { x: -120, y: -230 } : { x: -10, y: -150 };
     }
-    if (side === 'R' && T.charge) return T.def.missiles ? { x: 70, y: -196 } : { x: 200, y: -256, charging: true };
+    if (T.def.missiles) {
+      // L: hoán đổi hai tư thế cũ: tay phải co thấp, tay trái co cao ra phía sau lưng;
+      // cả hai đi cùng nhịp nắp ngực, giữ trống toàn bộ bệ phóng 3×2.
+      const retract = easeOut(launcherOpen(T));
+      const pose = side === 'R' ? TEMPEST_LAUNCH_ARMS.R : TEMPEST_LAUNCH_ARMS.L;
+      if (retract > 0 && (side === 'R' || !a)) return { x: lerp(rest.x, pose.x, retract), y: lerp(rest.y, pose.y, retract) };
+    }
+    if (side === 'R' && T.charge) return { x: 200, y: -256, charging: true };
     if (!a) {
       if (T.guard) return side === 'L' ? { x: 46, y: -318 } : { x: 92, y: -278 };
-      if (T.stagger > 0) return side === 'L' ? { x: -96, y: -210 } : { x: 30, y: -196 };
+      if (T.stagger > 0) return { ...STAGGER_TEMPLATE.hands[side] };
       return rest;
     }
     const blade = a.name === 'blade';
@@ -3097,7 +3116,7 @@
       if (a.t < w) lean -= 0.05 * (a.t / w);
       else if (a.t < w + a.m.active + a.m.recover * 0.5) lean += a.name === 'blade' ? 0.12 : a.name === 'jet' ? 0.16 : 0.07;
     }
-    if (T.stagger > 0) lean -= 0.12;
+    if (T.stagger > 0) lean += STAGGER_TEMPLATE.lean;
     if (T.guard) lean -= 0.03;
     if (Math.abs(T.vx) > 300) lean += 0.08 * Math.sign(T.vx) * T.facing;
     return lean;
@@ -3499,8 +3518,10 @@
     ctx.save(); ctx.translate(-43, -294); ctx.rotate(-0.12);
     ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = F.frame; ctx.fillText('STRIKER', 0, 0); ctx.fillText('E-01', 0, 10); ctx.restore();
     drawSlashTrail(T, -18, -291);
-    drawTempestArm(T, 'R', -18, -291, F, lc);
-    drawTempestShoulder(-21, -303, F, 1);
+    // L: cả khớp vai phải lùi ra sau cùng tay, không che ống phóng góc trên bên trái.
+    const shoulderBack = TEMPEST_LAUNCH_ARMS.R.back * easeOut(launcherOpen(T));
+    drawTempestArm(T, 'R', -18 - shoulderBack, -291, F, lc);
+    drawTempestShoulder(-21 - shoulderBack, -303, F, 1);
     if (T.hp / T.maxHp < 0.7) {
       ctx.strokeStyle = F.frame; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-53, -312); ctx.lineTo(-43, -294); ctx.lineTo(-49, -281); ctx.stroke();
@@ -4089,7 +4110,7 @@
     const bob = T.moving ? -Math.abs(Math.cos(ph)) * 8 + 4 : Math.sin(game.t * 2) * 2.5;
     let lift1 = T.moving ? Math.max(0, Math.cos(ph)) : 0;
     let lift2 = T.moving ? Math.max(0, -Math.cos(ph)) : 0;
-    let crouch = T.guard ? 14 : T.stagger > 0 ? 10 : 0;
+    let crouch = T.guard ? 14 : T.stagger > 0 ? STAGGER_TEMPLATE.crouch : 0;
     let flameK = null; // độ mạnh lửa thruster phụt xuống (null = tắt)
     const ra = T.arms.R;
     if (T.def.special === 'leap' && !T.leap && ra && ra.name === 'jet' && ra.t < ra.windup) {
@@ -8350,7 +8371,7 @@
         const phase = celebratePhase(T.celebrate);
         if (phase.name === 'jump') T.airY = Math.sin(phase.k * Math.PI) * 170;
       }
-      if (clip === 'stagger') { T.stagger = 0.3; T.hitFlash = Math.sin(t * 8) > 0.8 ? 0.1 : 0; }
+      if (clip === 'stagger') { T.stagger = 0.3; T.hitFlash = staggerPreview(t).flash ? 0.1 : 0; }
       ctx.save();
       const scale = Math.min(bw / 760, bh / 540) * zoom;
       ctx.translate(bx + bw * 0.46, by + bh * 0.9);
@@ -8398,6 +8419,7 @@
   if (titanGallery) {
     window.TitanGallery = {
       clips: CLIPS,
+      staggerPreview,
       specs: Object.fromEntries(TITANS.map(def => [def.id, {
         heightM: def.heightM, massTonnes: def.massTonnes, label: titanSpecLabel(def),
         scale: titanDrawScale({ def }), crown: def.model.crown, sole: def.model.sole,

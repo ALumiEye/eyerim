@@ -89,7 +89,7 @@ Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, kh�
 
 Giữ nguyên UI sci-fi TIDEBREAKER: nền tối, cyan, hiệu ứng và bố cục menu/HUD. Vỏ màn hình điều khiển vuông góc bao quanh bốn cạnh canvas, nền kem, viền tím đậm và nhấn cam. Cạnh trên có logo ALumiEye gốc, Lumi đúng tỷ lệ và tên EyeRim; cạnh dưới có nhãn máy, khe trang trí và đèn trạng thái. Canvas tự co theo lòng khung, không che/cắt HUD hay cảnh báo. Dùng favicon mặt Lumi. Ảnh trong `assets/` là bản sao nguyên byte từ EyeTank và được đóng gói vào cả bản Pages lẫn HTML offline.
 
-Kiểm tra bằng Chrome thật: `npm run check:browser` (xem mục Kiểm thử). Ảnh chụp được lưu vào `shots/brand-*.png`.
+Kiểm tra bằng Chrome thật: `npm run check:browser` (xem mục Kiểm thử). Ảnh chụp kiểm tra được lưu vào thư mục tạm của máy (in ra cuối lần chạy), không nằm trong repo.
 
 ## Nhạc riêng
 
