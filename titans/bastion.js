@@ -72,8 +72,8 @@
   }
   // Chiều cao vẽ độc lập hoàn toàn với số mét ghi trong hồ sơ Titan.
   const crown = 540, sole = 9;
-  const reference = base.specs.vanguard;
-  const modelScale = (reference.crown + reference.sole) * reference.scale / (crown + sole);
+  // Đỉnh mũ y=-540; pháo vai nhô cao không tham gia đo H.
+  const modelScale = base.scaleToDrawingHeight(crown, sole);
   // Tầm khóa đòn I đo theo chiều cao vẽ, không lấy số mét hư cấu.
   const jetSlam = { reach: 2 * (crown + sole), period: 3.2, impactAt: 1.08 };
   function jetSlamPose(time) {
@@ -93,47 +93,39 @@
       impact: envelope(phase, 1.04, 1.08, 1.16, 1.44),
     };
   }
-  // Đổi đích bàn tay của template chung sang góc khớp, giữ nguyên tỷ lệ tay Bastion.
+  // Đổi đích bàn tay của template chung (khung Vanguard) sang góc khớp, giữ nguyên tỷ lệ tay Bastion.
+  function handToward(template, side, sx, sy) {
+    const ratio = base.templateRatio(modelScale), target = template.hands[side];
+    const tx = target.x * ratio, ty = (target.y - template.bodyLift) * ratio;
+    const dx = tx - sx, dy = ty - sy;
+    const distance = Math.max(30, Math.min(188.5, Math.hypot(dx, dy)));
+    const upper = Math.atan2(dy, dx) + Math.acos((80 * 80 + distance * distance - 109 * 109) / (160 * distance));
+    const lower = Math.atan2(ty - sy - Math.sin(upper) * 80, tx - sx - Math.cos(upper) * 80);
+    return { upper, lower };
+  }
   function staggerPose(time) {
     const reaction = base.staggerPreview(time);
-    const ratio = (crown + sole) / reaction.referenceHeight;
-    function hand(side, sx, sy) {
-      const target = reaction.hands[side];
-      const tx = target.x * ratio, ty = (target.y - reaction.bodyLift) * ratio;
-      const dx = tx - sx, dy = ty - sy;
-      const distance = Math.max(30, Math.min(188.5, Math.hypot(dx, dy)));
-      const upper = Math.atan2(dy, dx) + Math.acos((80 * 80 + distance * distance - 109 * 109) / (160 * distance));
-      const lower = Math.atan2(ty - sy - Math.sin(upper) * 80, tx - sx - Math.cos(upper) * 80);
-      return { upper, lower };
-    }
+    const ratio = base.templateRatio(modelScale);
+    const hand = (side, sx, sy) => handToward(reaction, side, sx, sy);
     return {
       lean: reaction.lean, crouch: reaction.crouch * ratio, flash: reaction.flash,
       far: hand('L', 38, -428), near: hand('R', -48, -422),
     };
   }
-  // Cùng template Vanguard/Tempest: .35s lấy đà, .75s nhảy xoay, 1.9s dang tay.
+  // Ăn mừng: đọc thẳng TEMPLATE DUY NHẤT trong src/game.js (celebrationPreview), chỉ quy đổi tỷ lệ.
   function celebrationPose(time) {
-    const phase = time - Math.floor(time / 3) * 3;
-    const k = clamp((phase - .35) / .75);
-    const jumping = phase >= .35 && phase < 1.1;
-    const landed = phase >= 1.1;
-    const raise = landed ? 1 : jumping ? smooth(k / .6) : 0;
-    const spread = landed ? 1 : jumping ? smooth((k - .6) / .4) : 0;
-    let spin = jumping ? Math.cos(k * Math.PI) : landed ? -1 : 1;
-    if (Math.abs(spin) < .12) spin = k < .5 - 1e-12 ? .12 : -.12;
+    const cel = base.celebrationPreview(time);
+    const ratio = base.templateRatio(modelScale);
+    // Bastion vẽ gần chính diện: tay xa ở phía trước (x dương) → nhận đích tay trước (R) của template,
+    // tay gần ở phía sau nhận đích tay sau (L); hình vẫn là một tay vung trước, một tay vung sau như Vanguard.
+    const far = handToward(cel, 'R', 38, -428), near = handToward(cel, 'L', -48, -422);
+    const name = cel.phase.name;
     return {
-      phase, jumping, landed, spin, spread,
-      feet: landed ? 1 : jumping ? smooth((k - .7) / .3) : 0,
-      air: jumping ? Math.sin(k * Math.PI) * 170 / modelScale : 0,
-      crouch: phase < .35 ? 38 * smooth(phase / .35)
-        : jumping ? 38 * (1 - smooth(k / .15)) + 30 * smooth((k - .85) / .15)
-        : 30 * (1 - smooth((phase - 1.1) / .22)),
-      thrust: jumping ? Math.sin(k * Math.PI) : 0,
-      landing: landed ? 1 - smooth((phase - 1.1) / .5) : 0,
-      farUpper: 1.25 - raise * 2.2 + spread * 1.15,
-      farLower: .75 - raise * 2.2 + spread * 1.65,
-      nearUpper: 1.9 + raise * 2.1 - spread * 1.1,
-      nearLower: 2.2 + raise * 2.4 - spread * 1.7,
+      phase: time - Math.floor(time / 3) * 3, template: cel, name,
+      jumping: name === 'jump', landed: cel.landed, spin: cel.spin, spread: cel.spreadFeet,
+      feet: cel.spreadFeet, feetFar: cel.feetFar * ratio, feetNear: cel.feetNear * ratio,
+      air: cel.air / modelScale, crouch: cel.crouch * ratio, lean: cel.lean, thrust: cel.thrust,
+      farUpper: far.upper, farLower: far.lower, nearUpper: near.upper, nearLower: near.lower,
     };
   }
   let c;
@@ -144,20 +136,41 @@
     c.beginPath(); points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath();
   }
   function poly(points, fill, width = 1.8) {
-    path(points); c.fillStyle = fill; c.fill();
-    if (width) { c.strokeStyle = P.edge; c.lineWidth = width; c.stroke(); }
+    path(points); c.fillStyle = silhouette ? P.edge : fill; c.fill();
+    if (width || silhouette) { c.strokeStyle = P.edge; c.lineWidth = width + silhouette; c.stroke(); }
   }
   function line(points, color = P.edge, width = 1.3) {
     c.beginPath(); points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
-    c.strokeStyle = color; c.lineWidth = width; c.stroke();
+    c.strokeStyle = silhouette ? P.edge : color; c.lineWidth = width + silhouette; c.stroke();
   }
   function ellipse(x, y, rx, ry, fill, stroke = P.edge, width = 1.7) {
-    c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fillStyle = fill; c.fill();
-    if (stroke) { c.strokeStyle = stroke; c.lineWidth = width; c.stroke(); }
+    c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fillStyle = silhouette ? P.edge : fill; c.fill();
+    if (stroke || silhouette) { c.strokeStyle = silhouette ? P.edge : stroke; c.lineWidth = width + silhouette; c.stroke(); }
   }
-  function rect(x, y, w, h, fill) { c.fillStyle = fill; c.fillRect(x, y, w, h); }
+  const NEAR_OUTLINE = 8, BRIGHTEN = .14, BRIGHT_KEYS = ['armor', 'light', 'mid', 'shadow', 'deep', 'steel', 'rim'];
+  // ===== Tương phản tay phải (tay gần) với thân: viền tối dày + giáp sáng hơn =====
+  // silhouette > 0: mọi nét/tô thành màu viền tối, nét dày thêm silhouette → bóng viền bao quanh cụm tay–vai gần.
+  let silhouette = 0;
+  const brightCache = new Map();
+  function brighten(pal) {
+    if (!brightCache.has(pal)) {
+      const lift = hex => {
+        if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+        const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+        return '#' + v.map(n => Math.round(n + (255 - n) * BRIGHTEN).toString(16).padStart(2, '0')).join('');
+      };
+      brightCache.set(pal, Object.fromEntries(Object.entries(pal).map(([k, v]) => [k, BRIGHT_KEYS.includes(k) ? lift(v) : v])));
+    }
+    return brightCache.get(pal);
+  }
+  function nearArmContrast(draw) {
+    const saved = P;
+    silhouette = NEAR_OUTLINE; draw(); silhouette = 0;
+    P = brighten(saved); draw(); P = saved;
+  }
+  function rect(x, y, w, h, fill) { c.fillStyle = silhouette ? P.edge : fill; c.fillRect(x, y, w, h); }
   function label(s, x, y, size = 8, color = P.rim) {
-    c.fillStyle = color; c.font = `800 ${size}px system-ui`; c.fillText(s, x, y);
+    c.fillStyle = silhouette ? P.edge : color; c.font = `800 ${size}px system-ui`; c.fillText(s, x, y);
   }
   function bolt(x, y, r = 2.4) {
     ellipse(x, y, r, r, P.frame, P.steel, .7);
@@ -379,9 +392,24 @@
     else fist(near, punch > .1);
     c.restore();
   }
-  function leg(hx, hy, fx, fy, near, bend = 0) {
+  // Chân đứng chuẩn (hông → cổ chân) của từng bên; chiều dài đùi/cẳng chân lấy từ đây và giữ cố định.
+  const legRest = { '-24': [-71, -29], '30': [58, -31] };
+  function legKnee(hx, hy, fx, fy) {
+    // Như ik() của Vanguard/Tempest cho MỌI động tác: chiều dài cố định (+4% để gối luôn hơi gập),
+    // nên khi thân hạ, khuỵu, nhấc hay dang chân thì gối gập ra trước, không co rút như ống lồng.
+    const [rx, ry] = legRest[hx], rkx = hx + (rx - hx) * .42 + 20, rky = hy * .51 + ry * .49 - 1;
+    const slack = base.legTemplate.slack;
+    const l1 = Math.hypot(rkx - hx, rky - hy) * slack, l2 = Math.hypot(rx - rkx, ry - rky) * slack;
+    const dx = fx - hx, dy = fy - hy;
+    const d = Math.max(Math.abs(l1 - l2) + 1, Math.min(l1 + l2 - .5, Math.hypot(dx, dy)));
+    const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
+    const ang = Math.atan2(dy, dx) - a;
+    return [hx + Math.cos(ang) * l1, hy + Math.sin(ang) * l1];
+  }
+  function leg(hx, hy, fx, fy, near, bend = 0, gait = null) {
+    void bend; // độ gập do IK quyết định theo vị trí thân/bàn chân
     // Genou décalé vers l'avant; pied posé à une cible stable, pas de jambes parallèles.
-    const kx = hx + (fx - hx) * .42 + 20 + bend, ky = hy * .51 + fy * .49 - 1;
+    const [kx, ky] = legKnee(hx, hy, fx, fy);
     function segment(ax, ay, bx, by, shin) {
       const length = Math.hypot(bx - ax, by - ay);
       c.save(); c.translate(ax, ay); c.rotate(Math.atan2(by - ay, bx - ax));
@@ -408,11 +436,15 @@
     segment(kx, ky, fx, fy, true);
     joint(kx, ky, 25);
     plate([[kx - 19, ky - 21], [kx + 10, ky - 27], [kx + 38, ky - 15], [kx + 43, ky - 3], [kx + 14, ky - 5], [kx - 8, ky - 11]], near, .2);
+    // Nhấc chân thì hếch mũi như Vanguard (-lift·0,25), xoay quanh cổ chân.
+    c.save();
+    if (gait?.lift) { c.translate(fx, fy); c.rotate(-gait.lift * base.legTemplate.footPitch); c.translate(-fx, -fy); }
     joint(fx, fy, 16);
     plate([[fx - 26, fy - 2], [fx + 16, fy - 8], [fx + 31, fy + 7], [fx + 64, fy + 16], [fx + 66, fy + 30], [fx + 43, fy + 35], [fx - 36, fy + 31], [fx - 38, fy + 16]], near, .3);
     poly([[fx - 36, fy + 25], [fx + 43, fy + 29], [fx + 66, fy + 24], [fx + 66, fy + 33], [fx + 43, fy + 38], [fx - 37, fy + 34]], P.frame, 1.4);
     line([[fx - 27, fy + 29], [fx + 40, fy + 32], [fx + 60, fy + 28]], P.steel, 1);
     for (let i = 0; i < 3; i++) line([[fx + 31 + i * 10, fy + 11 + i * 3], [fx + 29 + i * 10, fy + 28]], P.frame, 1.5);
+    c.restore();
   }
   function torso() {
     // Châssis dorsal et cage abdominale, sous les grandes pièces du plastron.
@@ -473,11 +505,25 @@
     bolt(12, -515, 2); bolt(49, -502, 1.7);
     c.restore();
   }
+  // Đứng im / Bước đi: đọc thẳng TEMPLATE trong src/game.js (idlePreview, walkPreview), chỉ quy đổi tỷ lệ.
+  const ratioV = () => base.templateRatio(modelScale);
+  const walkPeriod = Math.PI * 2 / 6.5;
+  function walkPose(time) {
+    const w = base.walkPreview(time), ratio = ratioV();
+    return { phase: w.phase, ratio, stride: w.stride, bob: w.bob * ratio,
+      far: { x: w.far.x * ratio, lift: w.far.lift }, near: { x: w.near.x * ratio, lift: w.near.lift } };
+  }
+  function idlePose(time) {
+    const i = base.idlePreview(time), ratio = ratioV();
+    return { bob: i.bob * ratio, far: i.breathe.L * ratio, near: i.breathe.R * ratio };
+  }
   // Tính tư thế của một động tác tại thời điểm time (dùng chung cho xưởng và trận đấu).
   function poseAt(clip, time) {
     const t = ((time % 6) + 6) % 6, cycle = t % 2.4;
     const walk = clip === 'walk', guard = clip === 'guard';
-    const stride = walk ? Math.sin(t * 4.8) : 0;
+    const gait = walk ? walkPose(time) : null;
+    const stride = gait ? gait.stride : 0;
+    const idle = clip === 'idle' || walk ? idlePose(time) : null;
     const dash = clip === 'dash' ? envelope(cycle, .05, .3, .9, 1.3) : 0;
     const punch = punchTimings[clip] ? punchPose(clip, Math.max(0, time)) : 0;
     const hammer = clip === 'blade' ? hammerPose(time) : null;
@@ -489,7 +535,7 @@
     const reaction = clip === 'stagger' ? staggerPose(t) : null;
     P = reaction && reaction.flash ? hitPalette : normalPalette;
     const celebration = clip === 'celebrate' ? celebrationPose(time) : null;
-    return { clip, time, t, cycle, walk, guard, stride, dash, punch, hammer, slam, firing, deploy, flash, flash2, reaction, celebration };
+    return { clip, time, t, cycle, walk, guard, stride, gait, idle, dash, punch, hammer, slam, firing, deploy, flash, flash2, reaction, celebration };
   }
   function draw(target, clip = 'idle', time = 0, facing = 1, zoom = 1) {
     c = target.getContext('2d');
@@ -517,43 +563,34 @@
       label('TẦM KHÓA I · 2 × CHIỀU CAO', 210, 42, 15, P.frame); c.restore();
       ellipse(slam.x + 13, 0, 135, 12, '#948c77', null);
     } else {
-      // Giữ camera rộng suốt màn ăn mừng để không cắt pháo lúc bật nhảy.
-      if (celebration) c.scale(.82, .82);
+      // Ăn mừng: cùng camera chung với Vanguard/Tempest (base.celebrationCamera), không thêm hiệu ứng riêng.
+      if (celebration) c.scale(base.celebrationCamera, base.celebrationCamera);
       ellipse(13, 0, celebration ? 135 - celebration.air * .08 : 135, 12, '#948c77', null);
-      if (celebration && celebration.landing > 0) {
-        c.save(); c.globalAlpha *= celebration.landing;
-        const radius = 135 + (1 - celebration.landing) * 250;
-        ellipse(0, 0, radius, radius * .09, 'transparent', P.blue, 4);
-        for (const side of [-1, 1]) {
-          for (let i = 0; i < 5; i++) {
-            const x = side * (80 + i * 32 + (1 - celebration.landing) * 130);
-            ellipse(x, -8 - Math.sin(i * 2) * 5, 19 + i * 3, 7 + i, '#b3a58d', null);
-          }
-        }
-        c.restore();
-      }
     }
   }
   // Thân Titan. Gốc tọa độ: mặt đất dưới chân, đơn vị mô hình Bastion.
   // opts.inPlace (trong trận): vị trí bay/nhảy do game điều khiển, không vẽ tên lửa minh họa của xưởng.
   function body(p, opts) {
-    const { clip, time, t, cycle, walk, guard, stride, dash, punch, hammer, flash, flash2, deploy, reaction, celebration } = p;
+    const { clip, time, t, cycle, walk, guard, stride, gait, idle, dash, punch, hammer, flash, flash2, deploy, reaction, celebration } = p;
+    // Nhún thân khi đi/đứng im; bàn chân bù lại để vẫn bám đất (trước đây chân lún theo nhịp nhún).
+    const bob = gait ? gait.bob : clip === 'idle' ? idle.bob : 0;
     const slam = p.slam && opts.inPlace ? { ...p.slam, x: 0, y: 0 } : p.slam;
     void walk; void cycle;
     c.translate(0, -sole);
     const crouch = celebration ? celebration.crouch : reaction ? reaction.crouch : 0;
-    const footSpread = celebration ? celebration.feet * 29 : 0;
+    const feetFar = celebration ? celebration.feetFar : 0, feetNear = celebration ? celebration.feetNear : 0;
     if (celebration) c.scale(celebration.spin, 1);
     c.translate((slam ? slam.x : 0) + dash * 24 - flash * 10 - flash2 * 10,
-      (slam ? slam.y : celebration ? (opts.inPlace ? 0 : -celebration.air) + crouch : reaction ? crouch + Math.sin(t * 2) * 2.5 : hammer ? 0 : Math.sin(t * 2) * 1.1)
-      + Math.abs(stride) * 6 + (guard ? 13 : 0) + deploy * 5);
+      (slam ? slam.y : celebration ? (opts.inPlace ? 0 : -celebration.air) + crouch : reaction ? crouch + Math.sin(t * 2) * 2.5 : hammer || bob ? bob : clip === 'idle' ? 0 : Math.sin(t * 2) * 1.1)
+      + (guard ? 13 : 0) + deploy * 5);
     c.rotate(dash * .12);
-    if (reaction) {
-      // Chân bám đất; chỉ thân trên ngả lùi quanh hông như template chung.
-      leg(-24, -264, -71 - crouch * .5, -29 - crouch, false, crouch * .45);
-      leg(30, -263, 58 + crouch * .6, -31 - crouch, true, crouch * .45);
+    const hipFirst = reaction || celebration;
+    if (hipFirst) {
+      // Chân bám đất; chỉ thân trên ngả quanh hông như template chung (trúng đòn lùi, ăn mừng lấy đà/ưỡn ngực).
+      leg(-24, -264, -71 + (celebration ? feetFar : -crouch * .5), -29 - crouch, false, crouch * .45);
+      leg(30, -263, 58 + (celebration ? feetNear : crouch * .6), -31 - crouch, true, crouch * .45);
       pelvis();
-      c.translate(0, -264); c.rotate(reaction.lean); c.translate(0, 264);
+      c.translate(0, -264); c.rotate(reaction ? reaction.lean : celebration.lean); c.translate(0, 264);
     }
     // Plan lointain: jambes et bras assombris, puis châssis, puis côté proche.
     backFrame();
@@ -565,28 +602,39 @@
       joint(-105, -431, 13);
     }
     cannon(-77 + deploy * 45, -473 - deploy * 89, -.025 + deploy * 1.6, (clip === 'ultimate' ? flash2 : flash) * 8, clip === 'ultimate' ? flash2 : flash, false);
-    if (!reaction) leg(-24, -264, -71 + stride * 35 - dash * 19 - footSpread, -29 - Math.max(0, -stride) * 24 - crouch, false, stride * 6 + crouch * .45);
+    const lift = gait ? base.legTemplate.lift * gait.ratio : 0;
+    if (!hipFirst) leg(-24, -264, -71 + (gait ? gait.far.x : 0) - dash * 19,
+      -29 - bob - (gait ? gait.far.lift * lift : 0) - crouch, false, crouch * .45,
+      gait ? { rest: [-71, -29], lift: gait.far.lift } : null);
     // Tay trái ở phía xa: cả gốc vai và cánh tay phải nằm sau giáp ngực/đầu.
     if (hammer) arm(38, -428, hammer.upper, hammer.lower, true, 0, hammer.morph, hammer.extension);
     else arm(38, -428,
-      celebration ? celebration.farUpper : reaction ? reaction.far.upper : 1.14 - stride * .12 - (clip === 'hook' ? punch * 1.1 : 0),
-      celebration ? celebration.farLower : reaction ? reaction.far.lower : -.23 - (guard ? .9 : 0) - (clip === 'hook' ? punch * .12 : 0), false, clip !== 'jab' ? punch : 0);
+      celebration ? celebration.farUpper : reaction ? reaction.far.upper : 1.14 + (idle ? idle.far * .005 : 0) - (clip === 'hook' ? punch * 1.1 : 0),
+      celebration ? celebration.farLower : reaction ? reaction.far.lower : -.23 + (idle ? idle.far * .012 : 0) - (guard ? .9 : 0) - (clip === 'hook' ? punch * .12 : 0), false, clip !== 'jab' ? punch : 0);
     shoulder(37, -445, false);
     torso();
-    if (!reaction) leg(30, -263, 58 - stride * 35 + dash * 12 + footSpread, -31 - Math.max(0, stride) * 24 - crouch, true, -stride * 7 + crouch * .45);
-    if (!reaction) pelvis();
+    if (!hipFirst) leg(30, -263, 58 + (gait ? gait.near.x : 0) + dash * 12,
+      -31 - bob - (gait ? gait.near.lift * lift : 0) - crouch, true, crouch * .45,
+      gait ? { rest: [58, -31], lift: gait.near.lift } : null);
+    if (!hipFirst) pelvis();
     head(0);
     // Bastion đảo tay đấm: F (jab, phi công 1) là tay phải ở phía gần, J (hook, phi công 2) là tay trái ở phía xa.
     // Nhờ vậy F + K (búa tay trái) là hai phi công đánh hai tay khác nhau → đồng bộ hợp lệ.
     // Trong trận, F có thể ra cùng lúc với búa K (đồng bộ): opts.jabTime cho tay phải đấm song song với búa tay trái.
+    // Ăn mừng: tay gần vung ra sau theo template → vẽ khẩu pháo gần TRƯỚC để không che mất tay phải.
+    const nearCannon = () => cannon(-157 + deploy * 115, -455 - deploy * 157, -.07 + deploy * 1.6, flash * 8, flash, true);
+    if (celebration) nearCannon();
     const nearPunch = opts.jabTime != null ? punchPose('jab', opts.jabTime) : clip !== 'hook' ? punch : 0;
-    arm(-48, -422,
-      slam ? slam.upper : celebration ? celebration.nearUpper : reaction ? reaction.near.upper : 1.86 + stride * .12 - nearPunch * .95 - (guard ? .45 : 0),
-      slam ? slam.lower : celebration ? celebration.nearLower : reaction ? reaction.near.lower : .48 - nearPunch * .55 - (guard ? 1.55 : 0),
-      true, opts.jabTime != null ? nearPunch : punch, slam ? slam.morph : 0, slam ? slam.extension : 0);
-    shoulder(-51, -444, true);
+    // Tay phải (gần) tách rõ khỏi thân: viền tối dày + giáp sáng hơn.
+    nearArmContrast(() => {
+      arm(-48, -422,
+        slam ? slam.upper : celebration ? celebration.nearUpper : reaction ? reaction.near.upper : 1.86 + (idle ? idle.near * .005 : 0) - nearPunch * .95 - (guard ? .45 : 0),
+        slam ? slam.lower : celebration ? celebration.nearLower : reaction ? reaction.near.lower : .48 + (idle ? idle.near * .012 : 0) - nearPunch * .55 - (guard ? 1.55 : 0),
+        true, opts.jabTime != null ? nearPunch : punch, slam ? slam.morph : 0, slam ? slam.extension : 0);
+      shoulder(-51, -444, true);
+    });
     // Khẩu gần nằm ngoài silhouette vai/tay để thân pháo không bị che mất.
-    cannon(-157 + deploy * 115, -455 - deploy * 157, -.07 + deploy * 1.6, flash * 8, flash, true);
+    if (!celebration) nearCannon();
     if (clip === 'cannon' && !opts.inPlace) for (const projectile of missileVolley(time)) missile(projectile);
     if (slam && slam.impact > 0) {
       c.save(); c.globalAlpha *= slam.impact;
@@ -617,19 +665,19 @@
     const scale = Math.min(bw / 760, bh / 540) * zoom * modelScale;
     c.save();
     c.translate(bx + bw * .46, by + bh * .9); c.scale(scale * facing, scale);
-    if (p.slam || p.celebration) c.scale(p.slam ? .72 : .82, p.slam ? .72 : .82);
+    if (p.slam || p.celebration) c.scale(p.slam ? .72 : base.celebrationCamera, p.slam ? .72 : base.celebrationCamera);
     if (p.slam) c.translate(-440, 0);
     body(p, {});
     c.restore();
     P = normalPalette;
   }
-  window.EyeRimBastion = { crown, sole, drawInGame, drawFramed, missile: (ctx, projectile) => { c = ctx; missile(projectile); }, jetSlam, hammerPeriod };
+  window.EyeRimBastion = { crown, sole, drawInGame, drawFramed, missile: (ctx, projectile) => { c = ctx; missile(projectile); }, jetSlam, hammerPeriod, walkPose, walkPeriod, idlePose, legKnee, legHips: [[-24, -264], [30, -263]], celebrationPose, staggerPose, scale: modelScale };
   if (!window.TitanGallery) return;
   window.TitanGallery = {
     ...base,
     names: { ...base.names, bastion: names },
     punchTimings, punchPose, hammerPose, hammerPeriod, missileVolley, jetSlam, jetSlamPose, celebrationPose, staggerPose,
-    specs: { ...base.specs, bastion: { crown, sole, scale: modelScale, profileZoom: 1.65, label: (base.specs.bastion && base.specs.bastion.label) || '84 m · 2.950 tấn', note: 'Dáng ngang 3/4 · giáp hạng nặng · hai pháo sau vai.' } },
+    specs: { ...base.specs, bastion: { crown, sole, scale: modelScale, profileZoom: 1.65, label: (base.specs.bastion && base.specs.bastion.label) || '84 m · 2.950 tấn', series: 'Eye1', note: 'Dòng Eye1 · F: đấm phải · J: đấm trái, cùng bố trí với Bulwark. Dáng ngang 3/4 · giáp hạng nặng · hai pháo sau vai.' } },
     draw(target, id, ...args) { return id === 'bastion' ? draw(target, ...args) : base.draw(target, id, ...args); },
   };
 })();

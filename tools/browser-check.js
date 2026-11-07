@@ -121,13 +121,141 @@ const checkShots = path.join(os.tmpdir(), 'eyerim-check-shots');
       await page.screenshot({ path: path.join(checkShots, `brand-${size.width}.png`) });
     }
     await page.setViewportSize({ width: 1440, height: 900 });
-    for (const titan of ['vanguard', 'tempest', 'bastion']) {
+    for (const titan of ['vanguard', 'tempest', 'bastion', 'bulwark']) {
       await page.goto(`${base}/dist/titans/${titan}.html`);
       await page.waitForFunction(() => document.querySelectorAll('#clips button').length === 12);
       await page.locator('#clips button').nth(2).click();
       assert.equal(await page.locator('#clips button').nth(2).getAttribute('aria-pressed'), 'true');
-      assert(!/striker|eureka|gipsy|coyote/i.test(await page.locator('body').innerText()), 'gallery chỉ dùng tên Titan của game');
+      assert(!/striker|eureka|gipsy|coyote|cherno/i.test(await page.locator('body').innerText()), 'gallery chỉ dùng tên Titan của game');
       assert.equal(await page.locator('details, .reference').count(), 0, 'gallery không có ảnh tham chiếu ngoài');
+      assert(await page.locator('#height-frame').isChecked(), 'khung chuẩn H bật mặc định');
+      await page.locator('#clips button[data-clip="idle"]').click();
+      await page.locator('#timeline').fill('0');
+      await page.locator('#hero').screenshot({ path: path.join(checkShots, `${titan}-height-frame.png`) });
+      await page.locator('#height-frame').uncheck();
+      assert(!(await page.locator('#height-frame').isChecked()), 'tắt được khung đo để xem tạo hình');
+      if (['vanguard', 'tempest', 'bastion', 'bulwark'].includes(titan)) {
+        await page.locator('[data-clip="walk"]').click();
+        for (const direction of [1, -1]) {
+          if (direction === -1) await page.locator('#flip').click();
+          for (const time of [0, .24, .48, .72, .96, 1.2, 1.44]) {
+            await page.locator('#timeline').fill(String(time));
+            await page.locator('#hero').screenshot({ path: path.join(checkShots, `${titan}-walk-${time}-${direction}.png`) });
+          }
+        }
+        await page.locator('#flip').click();
+        await page.locator('[data-clip="idle"]').click();
+        await page.locator('#timeline').fill('0');
+      }
+      if (['bastion', 'bulwark'].includes(titan)) {
+        assert((await page.locator('header').innerText()).includes('Dòng Eye1'), 'hiển thị dòng Eye1 trong thông số');
+        assert.equal(await page.locator('[data-clip="jab"]').innerText(), 'F · Đấm phải');
+        assert.equal(await page.locator('[data-clip="hook"]').innerText(), 'J · Đấm trái');
+      }
+      if (titan === 'bulwark') {
+        await page.locator('[data-clip="idle"]').click();
+        for (const time of [.79, 2.36]) {
+          await page.locator('#timeline').fill(String(time));
+          await page.locator('#hero').screenshot({ path: path.join(checkShots, `bulwark-idle-breathe-${time}.png`) });
+        }
+        await page.locator('[data-clip="special"]').click();
+        assert.equal(await page.locator('#pose-name').innerText(), 'I · Đấm điện lao chéo');
+        for (const direction of [1, -1]) {
+          if (direction === -1) await page.locator('#flip').click();
+          for (const time of [.2, .55, .86, 1.07, 1.24, 1.7, 1.94, 2.5]) {
+            await page.locator('#timeline').fill(String(time));
+            await page.locator('#hero').screenshot({ path: path.join(checkShots, `bulwark-diagonal-${time}-${direction}.png`) });
+          }
+        }
+        await page.locator('#flip').click();
+        await page.locator('[data-clip="guard"]').click();
+        await page.locator('#timeline').fill('0');
+        for (const direction of [1, -1]) {
+          if (direction === -1) await page.locator('#flip').click();
+          const layers = await page.locator('#hero').evaluate(el => {
+            const ctx = el.getContext('2d'), original = ctx.moveTo, order = [];
+            ctx.moveTo = function(x, y) {
+              if (x === -36 && y === -24) order.push('shoulder');
+              if (x === 48 && y === -28) order.push('forearm');
+              return original.call(this, x, y);
+            };
+            try { window.TitanGallery.draw(el, 'bulwark', 'guard', 0, 1); }
+            finally { ctx.moveTo = original; }
+            return order.filter((_, i) => i % 2 === 0);
+          });
+          // Tay xa 1 lượt + tay gần 2 lượt (viền tương phản rồi giáp sáng): mỗi lượt vai trước, cẳng tay sau.
+          assert(layers.length >= 4 && layers.length % 2 === 0, 'đỡ đòn: đủ lượt vẽ hai tay');
+          assert(layers.every((l, i) => l === (i % 2 ? 'forearm' : 'shoulder')), 'đỡ đòn: cẳng tay nằm trước giáp vai');
+          // Vẽ lại đúng hướng đang chọn qua điều khiển thật.
+          await page.locator('#timeline').fill('0.01');
+          await page.locator('#hero').screenshot({ path: path.join(checkShots, `bulwark-guard-layer-${direction}.png`) });
+        }
+        await page.locator('#flip').click();
+        const arms = await page.evaluate(() => {
+          const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 780;
+          const ctx = canvas.getContext('2d'), original = ctx.moveTo;
+          let angles = [];
+          ctx.moveTo = function(x, y) {
+            if (x === 9 && y === -29) {
+              const m = this.getTransform(); angles.push(Math.atan2(m.b, m.a));
+            }
+            return original.call(this, x, y);
+          };
+          const result = [];
+          for (const direction of [1, -1]) {
+            const sample = (clip, time) => {
+              angles = []; window.TitanGallery.draw(canvas, 'bulwark', clip, time, direction);
+              // Mỗi tấm giáp vẽ cùng path hai lần: tô/viền rồi clip vết xước.
+              return angles.filter((_, i) => i % 2 === 0);
+            };
+            result.push({ rest: sample('jab', .6), f: sample('jab', .07), j: sample('hook', .1) });
+          }
+          return result;
+        });
+        for (const { rest, f, j } of arms) {
+          // Tay xa 1 lượt + tay gần 2 lượt (viền tương phản, giáp sáng) trùng khít góc.
+          assert.equal(rest.length, 3, 'đo hai tay thật trên Canvas');
+          for (const pose of [rest, f, j]) assert(Math.abs(pose[1] - pose[2]) < 1e-12, 'viền tương phản bám đúng tay phải');
+          assert(Math.abs(f[0] - rest[0]) < 1e-9 && Math.abs(f[1] - rest[1]) > 1, 'F chỉ đánh tay phải/gần');
+          assert(Math.abs(j[1] - rest[1]) < 1e-9 && Math.abs(j[0] - rest[0]) > 1, 'J chỉ đánh tay trái/xa');
+        }
+        for (const direction of [1, -1]) {
+          if (direction === -1) await page.locator('#flip').click();
+          for (const [clip, time] of [['jab', .07], ['hook', .1]]) {
+            await page.locator(`[data-clip="${clip}"]`).click();
+            await page.locator('#timeline').fill(String(time));
+            await page.locator('#hero').screenshot({ path: path.join(checkShots, `bulwark-eye1-${clip}-${direction}.png`) });
+          }
+        }
+        await page.locator('#flip').click();
+        await page.locator('[data-clip="cannon"]').click();
+        assert.equal(await page.locator('#pose-name').innerText(), 'L · Phun lửa hai mắt');
+        for (const direction of [1, -1]) {
+          if (direction === -1) await page.locator('#flip').click();
+          for (const time of [.3, 1.05, 1.45, 1.9, 2.15, 2.5]) {
+            await page.locator('#timeline').fill(String(time));
+            if (time === .3 || time === 1.05) {
+              const pixels = await page.locator('#hero').evaluate((el, direction) => {
+                const ctx = el.getContext('2d');
+                const s = Math.min(el.width / 760, el.height / 540) * window.EyeRimBulwark.scale;
+                return [[-79, -490], [84, -492]].map(([x, y]) => {
+                  const px = Math.round(el.width * .46 + direction * x * s);
+                  const py = Math.round(el.height * .9 + (y - 8) * s);
+                  return Array.from(ctx.getImageData(px, py, 1, 1).data);
+                });
+              }, direction);
+              for (const [r, g, b] of pixels) {
+                assert(r > g && r > b, 'hai mắt tụ màu nóng');
+                if (time === 1.05) assert(g > 170, 'hai mắt chuyển vàng trước khi phun');
+              }
+            }
+            await page.locator('#hero').screenshot({ path: path.join(checkShots, `bulwark-fire-${time}-${direction}.png`) });
+          }
+        }
+        await page.locator('#flip').click();
+        await page.locator('[data-clip="idle"]').click();
+        await page.locator('#timeline').fill('0');
+      }
       if (titan === 'tempest') {
         await page.locator('#clips button[data-clip="cannon"]').click();
         for (const direction of [1, -1]) {
@@ -254,6 +382,19 @@ const checkShots = path.join(os.tmpdir(), 'eyerim-check-shots');
           assert.equal(new Set(frames).size, 4, 'I bật ba lô, bay, đập búa rồi hồi phục');
           await page.locator('#flip').click();
         }
+        // Ăn mừng: tay phải (gần) vung ra sau → phải vẽ SAU khẩu pháo gần, không bị pháo che.
+        const celebrateLayers = await page.evaluate(() => {
+          const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 780;
+          const ctx = canvas.getContext('2d'), original = ctx.moveTo, order = [];
+          ctx.moveTo = function(x, y) {
+            if (x === -20 && y === -18) order.push('cannon');
+            if (x === 8 && y === -24) order.push('arm');
+            return original.call(this, x, y);
+          };
+          window.TitanGallery.draw(canvas, 'bastion', 'celebrate', 1.7, 1);
+          return order;
+        });
+        assert(celebrateLayers.lastIndexOf('arm') > celebrateLayers.lastIndexOf('cannon'), 'ăn mừng: tay phải nằm trước khẩu pháo gần');
         await page.locator('#clips button[data-clip="celebrate"]').click();
         for (const direction of [-1, 1]) {
           const frames = [];
@@ -277,6 +418,90 @@ const checkShots = path.join(os.tmpdir(), 'eyerim-check-shots');
         await page.setViewportSize({ width: 390, height: 844 });
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Bastion không tràn ngang trên điện thoại');
         await page.screenshot({ path: path.join(checkShots, 'bastion-mobile.png'), fullPage: true });
+        await page.setViewportSize({ width: 1440, height: 900 });
+      }
+      if (titan === 'bulwark') {
+        // Đo ngay tọa độ bộ vẽ thật, không chỉ so metadata scale tự khai báo.
+        for (const facing of [1, -1]) {
+          const landmarks = await page.evaluate(facing => {
+            const result = {};
+            for (const id of ['vanguard', 'bastion', 'bulwark']) {
+              const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 780;
+              const ctx = canvas.getContext('2d'), ground = canvas.height * .9;
+              const move = ctx.moveTo.bind(ctx), oval = ctx.ellipse.bind(ctx);
+              ctx.moveTo = (x, y) => {
+                const crown = id === 'vanguard' && x === -23 && y === -361 ? -396
+                  : id === 'bastion' && x === 1 && y === -480 ? -540 : null;
+                if (crown !== null) result[id] = ground - ctx.getTransform().transformPoint({ x: 0, y: crown }).y;
+                move(x, y);
+              };
+              ctx.ellipse = (x, y, rx, ry, ...args) => {
+                if (id === 'bulwark' && x === 0 && y === 0 && rx === 26 && ry === 29) {
+                  const m = ctx.getTransform(), center = m.transformPoint({ x, y });
+                  result[id] = Math.max(result[id] || 0, ground - center.y + Math.hypot(m.b * rx, m.d * ry));
+                }
+                oval(x, y, rx, ry, ...args);
+              };
+              window.TitanGallery.draw(canvas, id, 'idle', 0, facing, 1);
+            }
+            return { ...result, H: window.TitanGallery.drawingHeight * Math.min(1200 / 760, 780 / 540) };
+          }, facing);
+          for (const id of ['vanguard', 'bastion', 'bulwark']) {
+            assert(Math.abs(landmarks[id] - landmarks.H) < .001, `${id}: mốc thật trên Canvas phải bằng H (${facing})`);
+          }
+        }
+        await page.evaluate(() => {
+          const row = document.createElement('div'); row.id = 'height-comparison';
+          row.style = 'display:flex;background:#efe3cc;color:#3d2141';
+          for (const id of ['vanguard', 'bastion', 'bulwark']) {
+            const cell = document.createElement('div'); cell.style = 'width:33.333%';
+            const label = document.createElement('h3'); label.textContent = id;
+            const canvas = document.createElement('canvas'); canvas.width = 760; canvas.height = 780; canvas.style = 'width:100%';
+            cell.append(label, canvas); row.append(cell);
+            window.TitanGallery.draw(canvas, id, 'idle', 0, 1, 1);
+            const ctx = canvas.getContext('2d'), ground = canvas.height * .9;
+            ctx.strokeStyle = '#b9513c'; ctx.lineWidth = 1;
+            for (const y of [ground, ground - window.TitanGallery.drawingHeight]) {
+              ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+          }
+          document.body.prepend(row);
+        });
+        await page.locator('#height-comparison').screenshot({ path: path.join(checkShots, 'titan-height-comparison.png') });
+        await page.locator('#height-comparison').evaluate(el => el.remove());
+        for (const clip of ['idle', 'walk', 'guard', 'dash', 'jab', 'hook', 'blade', 'cannon', 'special', 'ultimate', 'celebrate']) {
+          await page.locator(`#clips button[data-clip="${clip}"]`).click();
+          await page.locator('#timeline').evaluate(el => { el.value = '0.55'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+          assert.equal(await page.locator('#time-value').innerText(), '0.55 s');
+        }
+        await page.locator('#clips button[data-clip="idle"]').click();
+        await page.locator('#timeline').fill('0');
+        await page.screenshot({ path: path.join(checkShots, 'bulwark-gallery.png'), fullPage: true });
+        await page.locator('#hero').screenshot({ path: path.join(checkShots, 'bulwark-idle.png') });
+        await page.locator('#clips button[data-clip="blade"]').click();
+        for (const direction of [1, -1]) {
+          for (const time of [.12, .25, .44, .6, .72, 1.2, 1.6]) {
+            await page.locator('#timeline').evaluate((el, time) => {
+              el.value = String(time); el.dispatchEvent(new Event('input', { bubbles: true }));
+            }, time);
+            assert.equal(await page.locator('#pose-name').innerText(), 'K · Móc thủy lực');
+            await page.locator('#hero').screenshot({ path: path.join(checkShots, `bulwark-uppercut-${time}-${direction}.png`) });
+          }
+          await page.locator('#flip').click();
+        }
+        await page.locator('#clips button[data-clip="celebrate"]').click();
+        for (const direction of [1, -1]) {
+          for (const time of [.3, .55, .725, 1.1, 1.6]) {
+            await page.locator('#timeline').evaluate((el, time) => {
+              el.value = String(time); el.dispatchEvent(new Event('input', { bubbles: true }));
+            }, time);
+            await page.locator('#hero').screenshot({ path: path.join(checkShots, `bulwark-celebrate-${time}-${direction}.png`) });
+          }
+          await page.locator('#flip').click();
+        }
+        await page.setViewportSize({ width: 390, height: 844 });
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Bulwark không tràn ngang trên điện thoại');
+        await page.screenshot({ path: path.join(checkShots, 'bulwark-mobile.png'), fullPage: true });
         await page.setViewportSize({ width: 1440, height: 900 });
       }
       await page.locator('#clips button[data-clip="stagger"]').click();

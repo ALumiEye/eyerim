@@ -37,8 +37,46 @@
     });
     $('clips').append(button);
   }
+  const measureLabel = document.createElement('label');
+  measureLabel.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:16px';
+  const measure = document.createElement('input');
+  measure.type = 'checkbox'; measure.id = 'height-frame'; measure.checked = true;
+  measure.style.cssText = 'width:auto;margin:0';
+  measureLabel.append(measure, document.createTextNode('Khung pixel · chuẩn H'));
+  document.querySelector('aside').append(measureLabel);
+  const measureNote = document.createElement('p'); measureNote.className = 'hint';
+  measureNote.textContent = 'So ở Đứng nghỉ, cùng zoom. H: đất → đỉnh đầu Vanguard (không tính vây); Bastion không tính pháo; Bulwark lấy mép trên mắt tròn. Pixel ghi theo canvas gốc, không phải pixel màn hình.';
+  document.querySelector('aside').append(measureNote);
+  function heightFrame() {
+    if (!measure.checked) return;
+    const ctx = hero.getContext('2d');
+    const camera = clip === 'celebrate' ? api.celebrationCamera
+      : clip === 'special' ? (id === 'bastion' ? .72 : id === 'bulwark' ? .82 : 1) : 1;
+    const h = api.drawingHeight * Math.min(hero.width / 760, hero.height / 540) * zoom * camera;
+    const ground = hero.height * .9, top = ground - h, center = hero.width * .46;
+    const left = center - h * .48, right = center + h * .48;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.strokeStyle = '#a84c3b'; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+    ctx.strokeRect(left, top, right - left, h); ctx.setLineDash([]);
+    for (const y of [top, ground]) {
+      ctx.beginPath(); ctx.moveTo(left - 12, y); ctx.lineTo(right + 12, y); ctx.stroke();
+    }
+    for (let px = 50; px < h; px += 50) {
+      const y = ground - px;
+      ctx.beginPath(); ctx.moveTo(left - 8, y); ctx.lineTo(left + 5, y); ctx.stroke();
+    }
+    ctx.font = '700 16px system-ui'; ctx.textAlign = 'left';
+    for (const [label, y] of [[`H = ${h.toFixed(1)} px`, top - 12], ['0 px · mặt đất', ground + 25]]) {
+      const w = ctx.measureText(label).width;
+      ctx.fillStyle = '#efe3cc'; ctx.fillRect(left - 4, y - 18, w + 8, 24);
+      ctx.fillStyle = '#59325d'; ctx.fillText(label, left, y);
+    }
+    ctx.restore();
+  }
+  measure.addEventListener('change', paint);
   function paint() {
     api.draw(hero, id, clip, time, facing, zoom);
+    heightFrame();
     $('timeline').value = String(time % 6);
     $('time-value').textContent = (time % 6).toFixed(2) + ' s';
   }

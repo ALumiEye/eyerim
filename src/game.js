@@ -618,8 +618,8 @@
     {
       // BASTION: bộ vẽ ở titans/bastion.js (dùng chung với trang xưởng). Pháo binh hạng nặng: trâu, chậm, đòn nặng mạnh.
       id: 'bastion', name: 'EYERIM BASTION', role: 'PHÁO BINH HẠNG NẶNG · CHỐNG CHỊU',
-      desc: 'Giáp xám ô-liu, vạch đỏ, kính xanh dọc. Búa thủy lực tay trái, hai pháo vai phóng tên lửa lớn.',
-      heightM: 84, massTonnes: 2950,
+      desc: 'Dòng Eye1: F đấm phải, J đấm trái. Giáp xám ô-liu, vạch đỏ, kính xanh dọc. Búa thủy lực tay trái, hai pháo vai phóng tên lửa lớn.',
+      series: 'Eye1', heightM: 84, massTonnes: 2950,
       model: { crown: 540, sole: 9 },
       hp: 165, speed: 235, power: 1, quick: 1, regen: 0.8,
       stats: { armor: 5, speed: 2, power: 5, energy: 2 },
@@ -1532,6 +1532,45 @@
     if (t < CEL.crouch) return { name: 'crouch', k: t / CEL.crouch };
     if (t < CEL.crouch + CEL.jump) return { name: 'jump', k: (t - CEL.crouch) / CEL.jump };
     return { name: 'pose', k: clamp((t - CEL.crouch - CEL.jump) / CEL.hold, 0, 1) };
+  }
+
+  // TEMPLATE ĂN MỪNG DUY NHẤT cho mọi Titan (Vanguard/Tempest vẽ trong game, Bastion/Bulwark quy đổi theo tỷ lệ).
+  // Đơn vị khung cơ sở Vanguard: crouch/feet/hands trước BODY_LIFT; air theo đơn vị game.
+  function celebrationTemplate(c, clock) {
+    const ph = celebratePhase(c), k = ph.k;
+    let crouch = 0, air = 0, spin = 1, spreadFeet = 0, lean = 0, thrust = 0;
+    if (ph.name === 'crouch') { crouch = 26 * easeOut(k); lean = 0.1 * k; }
+    else if (ph.name === 'jump') {
+      crouch = k < 0.15 ? 26 * (1 - k / 0.15) : k > 0.85 ? 30 * ((k - 0.85) / 0.15) : -10;
+      spin = Math.cos(k * Math.PI); // xoay nửa vòng (lật mặt) trên không
+      if (Math.abs(spin) < 0.12) spin = 0.12 * Math.sign(spin || 1);
+      spreadFeet = k > 0.7 ? (k - 0.7) / 0.3 : 0;
+      air = Math.sin(k * Math.PI) * 170;
+      thrust = k < 0.75 ? 1 - k * 0.8 : 0; // lửa phụt mạnh lúc bật, tắt trước đỉnh
+    } else if (ph.name === 'pose') {
+      crouch = 30 * (1 - easeOut(Math.min(1, k * 3))) + 6;
+      spreadFeet = 1; lean = -0.1;
+    }
+    const hand = side => {
+      const low = side === 'L' ? { x: -40, y: -150 } : { x: 50, y: -150 };
+      const up = side === 'L' ? { x: -30, y: -400 } : { x: 70, y: -404 };
+      const spread = side === 'L' ? { x: -150, y: -176 } : { x: 162, y: -182 };
+      const mix = (a, b, m) => ({ x: lerp(a.x, b.x, m), y: lerp(a.y, b.y, m) });
+      if (ph.name === 'wait') return mix(side === 'L' ? { x: -64, y: -166 } : { x: 76, y: -160 }, low, 0.5);
+      if (ph.name === 'crouch') return low;
+      if (ph.name === 'jump') return k < 0.6 ? mix(low, up, easeOut(k / 0.6)) : mix(up, spread, easeInOut((k - 0.6) / 0.4));
+      return { x: spread.x, y: spread.y + Math.sin(clock * 40) * 2 * (1 - k) };
+    };
+    return { phase: ph, crouch, air, spin, spreadFeet, feetFar: -44 * spreadFeet, feetNear: 50 * spreadFeet,
+      lean, thrust, landed: ph.name === 'pose', hands: { L: hand('L'), R: hand('R') },
+      bodyLift: BODY_LIFT, referenceHeight: 372 + BODY_LIFT };
+  }
+  // Camera xem mẫu ăn mừng chung cho mọi Titan: lùi ra để cú nhảy 170 không cắt pháo/đầu trụ ở cạnh trên.
+  const CELEBRATION_CAMERA = 0.82;
+  // Xem mẫu: vòng 3 giây như trang xưởng.
+  function celebrationPreview(time) {
+    const t = ((time % 3) + 3) % 3; // đồng hồ trong vòng 3s để vòng lặp xưởng khớp từng khung
+    return celebrationTemplate({ t }, t);
   }
 
   function updateCelebration(T, dt) {
@@ -3241,6 +3280,23 @@
   }
 
   // Template trúng đòn chung; tọa độ theo khung cơ sở trước BODY_LIFT.
+  // ===== TEMPLATE CHUYỂN ĐỘNG CHUNG (nguồn duy nhất cho mọi Titan; xem eyerim/AGENTS.md) =====
+  // Đơn vị: khung mô hình Vanguard. Titan khác nhân với templateRatio(scale riêng) để cùng kích thước hiển thị.
+  // ĐỨNG IM: thân thở lên xuống, hai tay thở lệch pha (tay xa/L pha 0, tay gần/R pha 1,2).
+  function idleTemplate(clock) {
+    return { bob: Math.sin(clock * 2) * 2.5,
+      breathe: { L: Math.sin(clock * 2) * 3, R: Math.sin(clock * 2 + 1.2) * 3 } };
+  }
+  // BƯỚC ĐI: ph = walkT·6,5; trước–sau theo sin, độ nhấc theo cos → nhấc khi vung tới trước, chạm đất khi đẩy về sau.
+  // Tay vẫn thở theo idleTemplate (không vung tay theo bước).
+  const LEG_TEMPLATE = { stride: 24, lift: 22, footPitch: 0.25, slack: 1.04 };
+  function walkTemplate(walkT) {
+    const ph = walkT * 6.5, s = Math.sin(ph), k = Math.cos(ph);
+    return { phase: ph, stride: s,
+      far: { x: -s * LEG_TEMPLATE.stride, lift: Math.max(0, -k) },
+      near: { x: s * LEG_TEMPLATE.stride, lift: Math.max(0, k) },
+      bob: -Math.abs(k) * 8 + 4 };
+  }
   const STAGGER_TEMPLATE = {
     lean: -0.12, crouch: 10,
     hands: { L: { x: -96, y: -210 }, R: { x: 30, y: -196 } },
@@ -3254,7 +3310,7 @@
 
   function armPose(T, side) {
     const a = T.arms[side];
-    const breathe = Math.sin(game.t * 2 + (side === 'L' ? 0 : 1.2)) * 3;
+    const breathe = idleTemplate(game.t).breathe[side];
     const rest = T.def.id === 'vanguard'
       ? (side === 'L' ? { x: 112, y: -249 + breathe } : { x: 30, y: -161 + breathe })
       : (side === 'L' ? { x: -64, y: -166 + breathe } : { x: 76, y: -160 + breathe });
@@ -3376,16 +3432,7 @@
   }
 
   function celebrateArm(T, side) {
-    const ph = celebratePhase(T.celebrate);
-    const low = side === 'L' ? { x: -40, y: -150 } : { x: 50, y: -150 };
-    const up = side === 'L' ? { x: -30, y: -400 } : { x: 70, y: -404 };
-    const spread = side === 'L' ? { x: -150, y: -176 } : { x: 162, y: -182 };
-    const mix = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k) });
-    if (ph.name === 'wait') return mix(side === 'L' ? { x: -64, y: -166 } : { x: 76, y: -160 }, low, 0.5);
-    if (ph.name === 'crouch') return mix(low, low, 1);
-    if (ph.name === 'jump') return ph.k < 0.6 ? mix(low, up, easeOut(ph.k / 0.6)) : mix(up, spread, easeInOut((ph.k - 0.6) / 0.4));
-    const shakeArm = Math.sin(game.t * 40) * 2 * (1 - ph.k);
-    return { x: spread.x, y: spread.y + shakeArm };
+    return celebrationTemplate(T.celebrate, game.t).hands[side];
   }
 
   function leapArm(T, side) {
@@ -3411,10 +3458,7 @@
       if (t < LEAP.up + LEAP.smash) return 0.3;
       return 0.3 * (1 - clamp((t - LEAP.up - LEAP.smash) / LEAP.fall, 0, 1));
     }
-    if (T.celebrate) {
-      const ph = celebratePhase(T.celebrate);
-      return ph.name === 'crouch' ? 0.1 * ph.k : ph.name === 'pose' ? -0.1 : 0;
-    }
+    if (T.celebrate) return celebrationTemplate(T.celebrate, game.t).lean;
     let lean = 0;
     for (const side of ['L', 'R']) {
       const a = T.arms[side];
@@ -4383,18 +4427,25 @@
 
   // Tên lửa vệ tinh: vòng ngắm bám mục tiêu + tia dẫn đường từ trời + tên lửa lao xuống.
 
-  // Cùng chiều cao đầu–chân; chỉ scale đồng nhất X/Y, không bóp riêng thân hay chân.
+  // H lấy từ đất tới đỉnh mũ Vanguard (-396 - BODY_LIFT), không tính vây lưng.
+  // Giữ nguyên tỷ lệ Vanguard hiện có; mọi bộ vẽ khác quy về đúng mốc này.
+  const vanguardScale = TITAN_SCALE * (372 + BODY_LIFT) / (TITANS[0].model.crown + TITANS[0].model.sole);
+  const drawingHeight = (396 + BODY_LIFT + TITANS[0].model.sole) * vanguardScale;
+  const scaleToDrawingHeight = (landmark, sole) => drawingHeight / (landmark + sole);
+  // Quy đổi DUY NHẤT từ khung Vanguard sang khung mô hình Titan khác: cùng kích thước hiển thị (như chuẩn H).
+  const templateRatio = ownScale => vanguardScale / ownScale;
   function titanDrawScale(T) {
-    return TITAN_SCALE * (372 + BODY_LIFT) / (T.def.model.crown + T.def.model.sole);
+    return scaleToDrawingHeight(T.def.model.crown, T.def.model.sole);
   }
 
   function titanSpecLabel(def) {
-    return `${def.heightM} m · ${def.massTonnes.toLocaleString('vi-VN')} tấn`;
+    return `${def.series ? `Dòng ${def.series} · ` : ''}${def.heightM} m · ${def.massTonnes.toLocaleString('vi-VN')} tấn`;
   }
 
   // BASTION: trạng thái chiến đấu → động tác + thời điểm của bộ vẽ titans/bastion.js.
   // Mỗi mốc thời gian khớp nhịp của bộ vẽ (gồng, ra đòn, hồi) để động tác trong trận giống trang xưởng.
-  const BASTION_WALK = (2 * Math.PI / 4.8) * 4; // 4 chu kỳ bước, < 6 s để không giật khi quay vòng
+  // 4π = 13 chu kỳ bước (t·6,5, như Vanguard) và cũng tròn chu kỳ thở tay sin(t·2): quay vòng không giật.
+  const BASTION_WALK = 4 * Math.PI;
   function bastionClip(T) {
     const a = T.arms.R;
     const l = T.arms.L;
@@ -4449,12 +4500,13 @@
     const F = flash ? MECH.flash : T.def.pal.front;
     const B = flash ? MECH.flash : T.def.pal.back;
     // Chu kỳ bước đi: hai chân lệch pha, thân nhún theo nhịp bước.
-    const ph = T.walkT * 6.5;
-    const s1 = Math.sin(ph);
-    const s2 = Math.sin(ph + Math.PI);
-    const bob = T.moving ? -Math.abs(Math.cos(ph)) * 8 + 4 : Math.sin(game.t * 2) * 2.5;
-    let lift1 = T.moving ? Math.max(0, Math.cos(ph)) : 0;
-    let lift2 = T.moving ? Math.max(0, -Math.cos(ph)) : 0;
+    const gait = walkTemplate(T.walkT);
+    const ph = gait.phase;
+    const s1 = gait.near.x / LEG_TEMPLATE.stride;
+    const s2 = gait.far.x / LEG_TEMPLATE.stride;
+    const bob = T.moving ? gait.bob : idleTemplate(game.t).bob;
+    let lift1 = T.moving ? gait.near.lift : 0;
+    let lift2 = T.moving ? gait.far.lift : 0;
     let crouch = T.guard ? 14 : T.stagger > 0 ? STAGGER_TEMPLATE.crouch : 0;
     let flameK = null; // độ mạnh lửa thruster phụt xuống (null = tắt)
     const ra = T.arms.R;
@@ -4475,17 +4527,9 @@
     let spreadFeet = 0;
     let celPh = null;
     if (T.celebrate) {
-      celPh = celebratePhase(T.celebrate);
-      if (celPh.name === 'crouch') crouch = 26 * easeOut(celPh.k);
-      else if (celPh.name === 'jump') {
-        crouch = celPh.k < 0.15 ? 26 * (1 - celPh.k / 0.15) : celPh.k > 0.85 ? 30 * ((celPh.k - 0.85) / 0.15) : -10;
-        spin = Math.cos(celPh.k * Math.PI); // xoay nửa vòng (lật mặt) trên không
-        if (Math.abs(spin) < 0.12) spin = 0.12 * Math.sign(spin || 1);
-      } else if (celPh.name === 'pose') {
-        crouch = 30 * (1 - easeOut(Math.min(1, celPh.k * 3))) + 6;
-        spreadFeet = 1;
-      }
-      if (celPh.name === 'jump') spreadFeet = celPh.k > 0.7 ? (celPh.k - 0.7) / 0.3 : 0;
+      const cel = celebrationTemplate(T.celebrate, game.t);
+      celPh = cel.phase;
+      if (celPh.name !== 'wait') { crouch = cel.crouch; spin = cel.spin; spreadFeet = cel.spreadFeet; }
     }
     const by = bob + crouch;
 
@@ -8780,6 +8824,7 @@
       const scale = Math.min(bw / 760, bh / 540) * zoom;
       ctx.translate(bx + bw * 0.46, by + bh * 0.9);
       ctx.scale(scale, scale);
+      if (clip === 'celebrate') ctx.scale(CELEBRATION_CAMERA, CELEBRATION_CAMERA);
       // Đưa gốc mặt đất của game tới đường nền trong khung xem.
       ctx.translate(0, -GROUND);
       drawTitan(T);
@@ -8822,7 +8867,8 @@
 
   // Hàm dùng chung cho titans/bastion.js khi chạy trong game (trang xưởng dùng TitanGallery).
   window.EyeRimCore = {
-    staggerPreview,
+    staggerPreview, celebrationPreview, celebrationCamera: CELEBRATION_CAMERA,
+    idlePreview: idleTemplate, walkPreview: walkTemplate, legTemplate: LEG_TEMPLATE, templateRatio, drawingHeight, scaleToDrawingHeight,
     names: {},
     specs: { vanguard: { crown: TITANS[0].model.crown, sole: TITANS[0].model.sole, scale: titanDrawScale({ def: TITANS[0] }) } },
   };
@@ -8830,9 +8876,10 @@
   if (titanGallery) {
     window.TitanGallery = {
       clips: CLIPS,
-      staggerPreview,
+      staggerPreview, celebrationPreview, celebrationCamera: CELEBRATION_CAMERA,
+    idlePreview: idleTemplate, walkPreview: walkTemplate, legTemplate: LEG_TEMPLATE, templateRatio, drawingHeight, scaleToDrawingHeight,
       specs: Object.fromEntries(TITANS.map(def => [def.id, {
-        heightM: def.heightM, massTonnes: def.massTonnes, label: titanSpecLabel(def),
+        heightM: def.heightM, massTonnes: def.massTonnes, series: def.series, label: titanSpecLabel(def),
         scale: titanDrawScale({ def }), crown: def.model.crown, sole: def.model.sole,
       }])),
       draw(target, id, clip, time, facing = 1, zoom = 1) {
