@@ -1,6 +1,6 @@
 # GAME DESIGN: chỉ số Titan và chiêu thức
 
-Tài liệu thiết kế, chưa áp dụng vào code. Cân bằng chỉ quan tâm chiêu đặc biệt (F+J); các chiêu F, J, K, I, L không chỉnh theo bài cân bằng.
+Tài liệu thiết kế chỉ số và công thức chiến đấu của các Titan (đã áp dụng vào `src/game.js`). Cân bằng chỉ quan tâm chiêu đặc biệt (F+J); các chiêu F, J, K, I, L không chỉnh theo bài cân bằng.
 
 ## 1. Chỉ số cơ bản (thang 10)
 
@@ -12,6 +12,94 @@ Tài liệu thiết kế, chưa áp dụng vào code. Cân bằng chỉ quan tâ
 | Bastion | Eye-1 | 9 | 6 | 5 | 7 | 7 | 34 / 50 |
 
 Hòa chỉ số là cố ý: Tempest và Bulwark cùng 10 ở Cận chiến và Năng lượng. Mọi công thức bên dưới dùng thẳng giá trị thang 10.
+
+## 1b. Máu (đề xuất)
+
+Máu là chỉ số riêng theo **kết cấu khung bên trong**, tách khỏi Giáp. Không cộng vào Tổng / 50 ở mục 1.
+
+```
+máu (HP) = ⌈90 + 8 · điểm máu⌉
+```
+
+| Titan | Điểm máu | Kết cấu bên trong | HP đề xuất | HP hiện tại |
+|---|:-:|---|---:|---:|
+| Vanguard | 10 | khung thép đặc cơ học, hệ điều khiển analog lì đòn nhất | 170 | 150 |
+| Bulwark | 9 | khung gầm đúc nguyên khối, chịu áp lực cực đại | 162 | 175 |
+| Tempest | 7,5 | khung hợp kim siêu nhẹ tối tân, nhạy cảm kỹ thuật số | 150 | 125 |
+| Bastion | 5 | khung xương thế hệ cũ, bị bức xạ hạt nhân mài mòn | 130 | 165 |
+
+- HP trung bình bốn Titan giữ gần như cũ (153 so với 154 hiện tại), nên độ khó so với quái gần như không đổi.
+- Máu thấp nhất bằng khoảng 76% máu cao nhất (130 / 170): đủ khác biệt mà không Titan nào bị hạ quá nhanh.
+- Máu làm tròn lên số nguyên (xem mục Làm tròn). Với bảng hiện tại công thức đã ra số nguyên, kể cả điểm 7,5.
+
+## 1c. Giáp (đề xuất)
+
+Bản cũ: "Giáp" chỉ là thanh xếp hạng theo máu, không có cơ chế riêng. Thiết kế mới tách hẳn:
+
+- **Máu** (mục 1b) là tổng lượng chịu được.
+- **Giáp** (cột Giáp, mục 1) là cơ chế **giảm sát thương nhận vào trước khi trừ vào máu**.
+
+```
+sát thương nhận = ⌈sát thương đòn · hệ số đỡ · (1 − 0.025 · giáp)⌉
+máu            = máu − sát thương nhận
+```
+
+- `hệ số đỡ` giữ nguyên như code hiện tại: không đỡ ×1; đỡ được ×0,35; vỡ thế thủ (đỡ khi thiếu năng lượng) ×1,33; đang đỡ gặp đòn không đỡ được ×0,75.
+- Giáp áp dụng cho **mọi** đòn trúng Titan, kể cả lúc đang đỡ và đòn không đỡ được. Né khi bất tử (lướt W) thì không trúng nên không tính.
+- Giáp chỉ giảm sát thương; không đổi thời gian choáng, đẩy lùi, mức mất Link hay năng lượng tốn khi đỡ.
+- Sát thương nhận **làm tròn lên** một lần ở cuối phép tính (sau hệ số đỡ và giáp), nên máu luôn là số nguyên. Mọi đòn trúng mất ít nhất 1 máu.
+
+| Titan | Máu | Giáp | Giảm sát thương | Cào 17 còn | Đỡ cào 17 còn | Máu quy đổi* |
+|---|---:|:-:|---:|---:|---:|---:|
+| Bulwark | 162 | 10 | 25% | 13 (12,75) | 5 (4,46) | 216 |
+| Vanguard | 170 | 8 | 20% | 14 (13,60) | 5 (4,76) | 213 |
+| Tempest | 150 | 9 | 22,5% | 14 (13,18) | 5 (4,61) | 194 |
+| Bastion | 130 | 7 | 17,5% | 15 (14,03) | 5 (4,91) | 158 |
+
+Số trong ngoặc là giá trị trước khi làm tròn lên.
+
+\*Máu quy đổi = máu / (1 − giảm sát thương): tổng sát thương gốc chịu được trước khi gục (khi không đỡ), chưa tính làm tròn.
+
+Vanguard và Bulwark trâu gần ngang nhau theo hai cách khác nhau: Vanguard nhờ máu, Bulwark nhờ giáp. Bastion mỏng nhất.
+
+**Nâng cấp xưởng:** nâng cấp "Giáp hợp kim" cũ thực chất cộng +30 máu tối đa mỗi cấp, nên đã đổi thành nâng cấp máu **"Khung gia cố"** (+30 máu tối đa mỗi cấp). Chưa có nâng cấp nào cộng điểm giáp.
+
+## 1d. Tốc độ đi
+
+Tốc độ di chuyển trong trận **tính từ chỉ số Tốc độ thang 10** (mục 1), không ghi tay riêng nữa:
+
+```
+tốc độ đi (đv/s) = 150 + 19 · tốc độ
+```
+
+| Titan | Tốc độ | Tốc độ đi hiện tại | Tốc độ đi mới |
+|---|:-:|---:|---:|
+| Tempest | 10 | 340 | 340 |
+| Vanguard | 7 | 270 | 283 |
+| Bastion | 5 | 235 | 245 |
+| Bulwark | 3 | 220 | 207 |
+
+- Giữ nguyên các hệ số làm chậm hiện có, nhân lên tốc độ đi mới: đỡ ×0,35; Link dưới 25% ×0,6; đang chém K ×0,6 (lưỡi cổ tay) hoặc ×0,3; đang nạp L ×0,45; Tempest đang phóng tên lửa ×0,4.
+- Nhịp bước chân trong hình vẽ tiếp tục co giãn theo tốc độ đi như code hiện tại.
+- Tốc độ đi không phải sát thương hay máu nên không làm tròn (với bảng hiện tại công thức đã ra số nguyên).
+- Màn chọn Titan bỏ con số TỐC ĐỘ (đv/s) ở góc sân khấu; người chơi chỉ thấy thanh Tốc độ thang 10 ở bảng chỉ số.
+- Tốc độ vẫn dùng thêm ở thời gian tụ chiêu I (mục 5).
+
+## 1e. Chỉ số đánh giá sức mạnh — Chiến lực (thang 10)
+
+Đánh giá tương quan sức mạnh tổng thể của từng Titan trên thang 10 bằng **trung bình cộng 6 chỉ số gốc** (5 chỉ số hiển thị ở mục 1 cộng với Điểm máu ở mục 1b); riêng chỉ số ẩn cận chiến của Bulwark lấy theo **kỳ vọng toán học** `E[U(1; 1,36)] = (1 + 1,36) / 2 = 1,18`:
+
+```
+cận chiến kỳ vọng = cận chiến · kỳ vọng hệ số ẩn   (Bulwark: 10 · 1,18 = 11,8; các Titan khác: ×1)
+chiến lực         = (tầm xa + cận chiến kỳ vọng + tốc độ + giáp + năng lượng + điểm máu) / 6
+```
+
+| Titan | Thế hệ | 5 chỉ số cơ bản | Cận chiến kỳ vọng | Điểm máu | Tổng / 60 | **Chiến lực (thang 10)** |
+|---|---|---:|---:|---:|---:|---:|
+| Tempest | Eye-5 | 49 | 10,0 | 7,5 | 56,5 / 60 | **9,4 / 10** |
+| Vanguard | Eye-3 | 39 | 8,0 | 10,0 | 49,0 / 60 | **8,2 / 10** |
+| Bulwark | Eye-1 | 36 | 11,8 | 9,0 | 46,8 / 60 | **7,8 / 10** |
+| Bastion | Eye-1 | 34 | 6,0 | 5,0 | 39,0 / 60 | **6,5 / 10** |
 
 ## 2. Mỗi chiêu gồm bốn chỉ số
 
@@ -27,9 +115,11 @@ Hòa chỉ số là cố ý: Tempest và Bulwark cùng 10 ở Cận chiến và 
 
 ### Làm tròn
 
-Chỉ **sát thương** được làm tròn, vì sát thương cộng trừ trực tiếp vào máu:
+**Quy định: sát thương và máu luôn làm tròn lên số nguyên**, vì sát thương cộng trừ trực tiếp vào máu:
 
-- Sát thương làm tròn lên số nguyên, một lần ở cuối phép tính (sau khi đã nhân chỉ số ẩn và tỷ lệ nạp của L). Ví dụ 36,4 → 37.
+- Sát thương Titan gây ra làm tròn lên một lần ở cuối phép tính (sau khi đã nhân chỉ số ẩn và tỷ lệ nạp của L). Ví dụ 36,4 → 37.
+- Sát thương Titan nhận vào làm tròn lên một lần ở cuối phép tính (sau hệ số đỡ và giáp, mục 1c). Ví dụ 12,75 → 13.
+- Máu (mục 1b) làm tròn lên số nguyên, nên máu luôn là số nguyên trong suốt trận.
 - Tầm đánh và thời gian (tụ, hồi) giữ nguyên giá trị tính ra, không làm tròn.
 - Hồi chiêu của L tính từ sát thương thực tế **đã làm tròn**.
 
@@ -196,4 +286,5 @@ Năng lượng giới hạn số lần dùng chiêu trong một khoảng thời 
 
 - Tên hiển thị dùng tên EyeRim; tên và thông số gốc của robot trong phim không đưa vào repo.
 - Chỉ số "Hỏa lực" cũ được thay bằng hai chỉ số **Tầm xa** (chỉ điều khiển L) và **Cận chiến** (điều khiển F, J, K, I).
+- "Giáp" cũ (xếp hạng theo máu) được tách thành **Máu** (mục 1b, lượng chịu được) và **Giáp** (mục 1c, giảm sát thương nhận vào).
 - Thanh chỉ số trên màn chọn sẽ đổi sang thang 10, đọc từ bảng mục 1.

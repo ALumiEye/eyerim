@@ -1,6 +1,6 @@
 /* Bulwark — bộ vẽ Titan. Bản NHÁP thiết kế: titans/bulwark.js (trang xưởng titans/bulwark.html);
  * bản GAME: src/titans/bulwark.js, chỉ cập nhật bằng `npm run promote bulwark` (chép nháp → game sau khi test qua).
- * Tạo hình theo bốn ảnh Cherno của người dùng; Titan thứ tư trong roster.
+ * Tạo hình pháo đài hạt nhân của Bulwark; Titan thứ tư trong roster.
  * Ăn mừng/trúng đòn lấy template chung, không tạo biến thể riêng.
  */
 (() => {

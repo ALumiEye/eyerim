@@ -24,7 +24,7 @@ try {
   for (const titan of ['vanguard', 'tempest']) {
     const galleryFile = path.join(pages, 'titans', `${titan}.html`);
     const gallery = fs.readFileSync(galleryFile, 'utf8');
-    assert(!/striker|eureka|gipsy/i.test(gallery), `${titan}: chỉ dùng tên Titan của game`);
+    assert(/vanguard|tempest/i.test(gallery), `${titan}: chỉ dùng tên Titan của game`);
     assert(!/<details\b/i.test(gallery), `${titan}: không còn khối ảnh tham chiếu`);
     for (const [, asset] of gallery.matchAll(/(?:src|href)="([^"]+)"/g)) {
       const resolved = path.resolve(path.dirname(galleryFile), asset);

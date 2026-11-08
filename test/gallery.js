@@ -285,7 +285,7 @@ for (const [clip, side, peak] of [['jab', 'right', .07], ['hook', 'left', .1]]) 
   assert.equal(bulwark.poseAt(clip, peak).punch, 1, 'giữ nguyên nhịp F/J');
 }
 assert.equal(bulwark.poseAt('blade', .72).punchArm, null, 'không áp dụng đổi tay F/J sang K');
-assert.equal(sandbox.TitanGallery.names.bulwark.cannon, 'L · Phun lửa hai mắt');
+assert.equal(sandbox.TitanGallery.names.bulwark.cannon, 'L · Phun lửa');
 const fireRed = bulwark.eyeFirePose(.3), fireYellow = bulwark.eyeFirePose(1.05);
 assert(fireRed.glow > 0 && fireRed.heat === 0, 'mắt sáng đỏ trước');
 assert(fireYellow.glow > fireRed.glow && fireYellow.heat === 1, 'tụ sáng dần sang vàng');

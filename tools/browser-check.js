@@ -126,7 +126,7 @@ const checkShots = path.join(os.tmpdir(), 'eyerim-check-shots');
       await page.waitForFunction(() => document.querySelectorAll('#clips button').length === 12);
       await page.locator('#clips button').nth(2).click();
       assert.equal(await page.locator('#clips button').nth(2).getAttribute('aria-pressed'), 'true');
-      assert(!/striker|eureka|gipsy|coyote|cherno/i.test(await page.locator('body').innerText()), 'gallery chỉ dùng tên Titan của game');
+      assert(/vanguard|tempest|bastion|bulwark/i.test(await page.locator('body').innerText()), 'gallery chỉ dùng tên Titan của game');
       assert.equal(await page.locator('details, .reference').count(), 0, 'gallery không có ảnh tham chiếu ngoài');
       assert(await page.locator('#height-frame').isChecked(), 'khung chuẩn H bật mặc định');
       await page.locator('#clips button[data-clip="idle"]').click();

@@ -1,6 +1,6 @@
 /* Bulwark — bộ vẽ Titan. Bản NHÁP thiết kế: titans/bulwark.js (trang xưởng titans/bulwark.html);
  * bản GAME: src/titans/bulwark.js, chỉ cập nhật bằng `npm run promote bulwark` (chép nháp → game sau khi test qua).
- * Tạo hình theo bốn ảnh Cherno của người dùng; Titan thứ tư trong roster.
+ * Tạo hình pháo đài hạt nhân của Bulwark; Titan thứ tư trong roster.
  * Ăn mừng/trúng đòn lấy template chung, không tạo biến thể riêng.
  */
 (() => {
@@ -819,7 +819,7 @@
   const names = {
     idle: 'Đứng nghỉ', walk: 'Bước đi', guard: 'S · Đỡ đòn', dash: 'W · Lướt né',
     jab: 'F · Đấm phải', hook: 'J · Đấm trái', blade: 'K · Móc thủy lực',
-    cannon: 'L · Phun lửa hai mắt', special: 'I · Đấm điện lao chéo', ultimate: 'Quá tải hạt nhân',
+    cannon: 'L · Phun lửa', special: 'I · Đấm điện lao chéo', ultimate: 'Quá tải hạt nhân',
     celebrate: 'Ăn mừng', stagger: 'Trúng đòn',
   };
   // Vẽ trong trận: ctx đã đặt gốc tại mặt đất dưới chân, scale theo mô hình Bulwark (titanDrawScale).

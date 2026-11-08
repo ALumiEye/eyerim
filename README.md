@@ -78,7 +78,7 @@ Từ đợt thứ hai trở đi chỉ chiếu cảnh 3. Bấm `Enter`, `Space`, 
 - **Đỡ hay né:** dấu `!` vàng là đòn đỡ được. Đòn **lao húc** đỏ thì không đỡ được: lướt né đúng lúc nó lao tới thì cú húc hụt và quái khựng lại, đó là lúc trả đòn. Cũng có thể phản đòn trước khi nó lao tới.
 - **Lướt xuyên:** đứng sát quái và lướt về phía nó thì Titan lướt xuyên qua thân quái sang phía bên kia. Dùng cách này để quay về phía thành phố nếu lỡ bị đẩy ra phía biển.
 - **Bảo vệ thành phố:** quái vật bị đánh văng hay lao trúng tòa nhà đều làm thành phố chịu thiệt hại. Nếu Titan đi xa hoặc vòng ra phía biển, quái vật sẽ tiến thẳng vào thành phố và đập phá. Thành phố còn dưới 40% là thua.
-- **Xưởng sửa chữa:** dùng phế liệu nhận được sau mỗi đợt để nâng cấp giáp, lò phản ứng, lõi plasma và bộ khuếch đại Link. Có thể giảm cấp bất cứ lúc nào trong xưởng (`S` / `−` hoặc nút −) để được hoàn lại đủ phế liệu đã trả.
+- **Xưởng sửa chữa:** dùng phế liệu nhận được sau mỗi đợt để nâng cấp máu (khung gia cố), lò phản ứng, lõi plasma và bộ khuếch đại Link. Có thể giảm cấp bất cứ lúc nào trong xưởng (`S` / `−` hoặc nút −) để được hoàn lại đủ phế liệu đã trả.
 
 Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp II, thêm phun axit và lao húc) và **Leviathrax** (Cấp III, thêm tiếng gầm hút Link). Khi máu xuống dưới 50%, quái vật vào trạng thái *cuồng nộ* và đánh nhanh hơn.
 
@@ -89,11 +89,11 @@ Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp I
 | Vanguard | 150 | 270 | Kiếm xích tầm xa | Pháo plasma nạp lực | Đấm phản lực, lao tới chắc trúng | Xung lò phản ứng |
 | Tempest | 125 | 340 | Lưỡi kép cổ tay, nhanh | 6 tên lửa (giữ đủ 2 s) | Đập phản lực từ trên xuống | Mưa tên lửa vệ tinh |
 | Bastion | 165 | 235 | Búa móc từ dưới lên, mạnh và xa | Tên lửa kép: nạp lực, 2 tên lửa lớn tự dẫn | Búa phản lực: bay lên phang búa xuống | Loạt pháo kép |
-| Bulwark | 165 | 220 | Móc thủy lực tay trái, sét vàng | Phun lửa hai mắt: nạp lực, 2 cầu lửa | Đấm điện lao chéo rồi rơi thẳng xuống | Quá tải hạt nhân |
+| Bulwark | 162 | 207 | Móc thủy lực tay trái, sét vàng | Phun lửa: nạp lực, 2 cầu lửa | Đấm điện lao chéo rồi rơi thẳng xuống | Quá tải hạt nhân |
 
-Bastion **đảo tay đấm**: F đấm tay phải, J đấm tay trái (cùng tay với búa K), nên F+K vẫn là hai phi công đánh hai tay khác nhau. Bastion trâu và đánh đau nhất nhưng chậm, hồi năng lượng chậm hơn (×0,8): hợp lối chơi đứng tấn, đỡ đòn và phản đòn bằng búa.
+Bastion **đảo tay đấm**: F đấm tay phải, J đấm tay trái (cùng tay với búa K), nên F+K vẫn là hai phi công đánh hai tay khác nhau. Bastion đánh tầm xa mạnh nhưng chậm: hợp lối chơi đứng tấn, đỡ đòn và phản đòn bằng búa.
 
-Bulwark cùng thế hệ Eye-1 nên cũng F tay phải, J tay trái (cùng tay với móc K). Chậm nhất trong bốn Titan, hồi năng lượng ×0,8. K biến hình tay trái thành nắm đấm lớn bọc sét vàng rồi móc lên; I tích điện khi đứng yên rồi lao chéo thẳng vào quái; chiêu đặc biệt Quá tải hạt nhân: toàn thân tích điện, hai vòi dưới nắm đấm phun lửa, hai mắt phóng hai cầu lửa vào quái.
+Bulwark cùng thế hệ Eye-1 nên cũng F tay phải, J tay trái (cùng tay với móc K). Chậm nhất trong bốn Titan. K biến hình tay trái thành nắm đấm lớn bọc sét vàng rồi móc lên; I tích điện khi đứng yên rồi lao chéo thẳng vào quái; chiêu đặc biệt Quá tải hạt nhân: toàn thân tích điện, hai vòi dưới nắm đấm phun lửa, hai họng xả đầu trụ phóng hai cầu lửa vào quái.
 
 ## Thông số kỹ thuật Titan
 

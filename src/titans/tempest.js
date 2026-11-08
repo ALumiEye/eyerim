@@ -10,7 +10,7 @@
   const { TEMPEST_LAUNCH_ARMS, armPose, drawSlashTrail, launcherOpen } = common;
   let ctx; // canvas hiện tại của game (trang xưởng có thể đổi), lấy lại mỗi lần vẽ
 
-  // TEMPEST: góc nghiêng theo striker-eureka.jpg ở root, vai vòm và đường viền vàng/xanh.
+  // TEMPEST: góc nghiêng khí động học, vai vòm và đường viền vàng/xanh.
   function drawTempestShoulder(x, y, P, side) {
     ctx.save(); ctx.translate(x, y); ctx.scale(side, 1);
     poly([[-23, 10], [-30, -9], [-25, -32], [-11, -43], [16, -45], [35, -35], [44, -18], [41, 4], [27, 18], [3, 22]], P.armor, P.line, 2);
@@ -113,7 +113,7 @@
     drawSensorHead(-340, F, lc);
     // Ký hiệu nhỏ trên ngực.
     ctx.save(); ctx.translate(-43, -294); ctx.rotate(-0.12);
-    ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = F.frame; ctx.fillText('STRIKER', 0, 0); ctx.fillText('E-01', 0, 10); ctx.restore();
+    ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = F.frame; ctx.fillText('TEMPEST', 0, 0); ctx.fillText('E-05', 0, 10); ctx.restore();
     drawSlashTrail(T, -18, -291);
     // L: cả khớp vai phải lùi ra sau cùng tay, không che ống phóng góc trên bên trái.
     const shoulderBack = TEMPEST_LAUNCH_ARMS.R.back * easeOut(launcherOpen(T));
@@ -141,7 +141,7 @@
     const base = len * 0.2;
     const L = len * 0.85 + 95 * ext;
     const yOff = -30 + 16 * ext; // bật từ mép giáp ra thẳng trục cẳng tay
-    // Hai lưỡi song song, sống tối và lưỡi vát bạc theo ảnh Striker Eureka.
+    // Hai lưỡi song song, sống tối và lưỡi vát bạc của Tempest.
     for (const dy of [-8, 8]) {
       const tip = base + L - (dy > 0 ? 12 : 0);
       poly([[base, yOff + dy - 3], [tip - 28, yOff + dy - 7], [tip + 18, yOff + dy], [tip - 22, yOff + dy + 6], [base, yOff + dy + 5]], P.lo, P.line);
@@ -249,7 +249,7 @@
     drawJointDisc(k.ex, k.ey, 16, P);
   }
 
-  // TEMPEST / Striker Eureka: đầu nhỏ thấp giữa cổ giáp, kính đen hẹp, không mắt tròn.
+  // TEMPEST: đầu nhỏ thấp giữa cổ giáp, kính đen hẹp, không mắt tròn.
   function drawSensorHead(hy, F, lc) {
     ctx.save();
     ctx.translate(7, hy + 4);

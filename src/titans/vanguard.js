@@ -61,7 +61,7 @@
     ctx.restore();
   }
 
-  // VANGUARD: giáp xanh thép nhiều lớp theo gipsy danger.jpeg, không đổi bộ vẽ Tempest.
+  // VANGUARD: giáp xanh thép nhiều lớp, không đổi bộ vẽ Tempest.
   function drawVanguardJoint(x, y, r, P) {
     const steel = P.steel || '#d8e5e9';
     ctx.fillStyle = P.frame;

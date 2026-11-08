@@ -12,7 +12,7 @@ const TITAN_HALF = 35;
 function spamBot(game, io, frame) {
   const { press, release } = io;
   const T = game.titan;
-  const K = game.kaiju;
+  const K = game.beast;
   ['KeyA', 'KeyD', 'KeyS'].forEach(release);
   if (!K || K.dying) return;
   const dist = Math.abs(K.x - T.x);
@@ -39,7 +39,7 @@ function makeSkilledBot({ reaction = 0.2, counterRate = 0.7, dodgeRate = 0.8 } =
     const { press, release, rand } = io;
     const tap = (c) => { press(c); release(c); };
     const T = game.titan;
-    const K = game.kaiju;
+    const K = game.beast;
     ['KeyA', 'KeyD', 'KeyW'].forEach(release);
     if (!K || K.dying || !T || T.celebrate) { release('KeyS'); release('KeyL'); return; }
     const blade = T.def.moves.blade || { windup: 0.32, range: 320 };
@@ -47,9 +47,11 @@ function makeSkilledBot({ reaction = 0.2, counterRate = 0.7, dodgeRate = 0.8 } =
     const toward = K.x > T.x ? 'KeyD' : 'KeyA';
     const armsFree = !T.arms.L && !T.arms.R && !T.slide && !T.leap && !T.dive && !T.beaming;
 
-    // đang nạp L: giữ tới ~75% rồi thả; quái gồng thì thả ngay
+    // đang nạp L: Tempest/Bastion phải giữ đủ T mới bắn; Vanguard/Bulwark giữ tới ~75% rồi thả (hoặc thả sớm khi quái gồng nếu đã qua mốc tối thiểu)
     if (T.charge) {
-      if (K.state === 'windup' || (T.def.missiles ? T.charge.full : T.charge.level >= 0.75)) release('KeyL');
+      const fullOnly = !!(T.def.missiles || T.def.shells);
+      const canFire = fullOnly ? T.charge.full : T.charge.t >= (T.charge.lock || 0.6);
+      if (fullOnly ? T.charge.full : (T.charge.level >= 0.75 || (K.state === 'windup' && canFire))) release('KeyL');
       else press('KeyL');
       return;
     }
@@ -66,7 +68,7 @@ function makeSkilledBot({ reaction = 0.2, counterRate = 0.7, dodgeRate = 0.8 } =
     }
 
     // ---- đạn axit đang bay tới: giữ đỡ cho tới khi đạn bay qua
-    const incoming = game.projectiles.some((p) => p.owner === 'kaiju' && Math.abs(p.x - T.x) < 700 && Math.sign(T.x - p.x) === Math.sign(p.vx));
+    const incoming = game.projectiles.some((p) => p.owner === 'beast' && Math.abs(p.x - T.x) < 700 && Math.sign(T.x - p.x) === Math.sign(p.vx));
     if (incoming && !T.charge) {
       press('KeyS');
       return;
@@ -115,7 +117,7 @@ function makeSkilledBot({ reaction = 0.2, counterRate = 0.7, dodgeRate = 0.8 } =
     // ---- tấn công
     if (gap > blade.range - 60) {
       // xa: nạp L nếu dư năng lượng, không thì tiến lại
-      if (gap > 420 && armsFree && T.energy > 70 && (!T.def.missiles || T.missileCD <= 0)) { press('KeyL'); return; }
+      if (gap > 420 && armsFree && T.energy > 70 && T.missileCD <= 0) { press('KeyL'); return; }
       press(toward);
       return;
     }
