@@ -92,6 +92,35 @@ step(5);
 assert(game.state === 'title', 'bắt đầu ở màn hình chính');
 press('Enter'); step(1); release('Enter');
 assert(game.state === 'select', 'ENTER mở màn hình chọn Titan');
+{
+  // Màn chọn kiểu gallery: phím số nhảy tới Titan, A/D vòng quanh, mỗi Titan có cốt truyện; ESC quay lại menu
+  const tap1 = (c) => { press(c); step(1); release(c); };
+  tap1('Digit4');
+  assert(game.pick === 3 && game.picker.from === 0, 'màn chọn: phím 4 nhảy tới Titan thứ tư (có hiệu ứng trượt)');
+  tap1('KeyD');
+  assert(game.pick === 0, 'màn chọn: D ở Titan cuối thì vòng về Titan đầu');
+  tap1('KeyA');
+  assert(game.pick === 3, 'màn chọn: A ở Titan đầu thì vòng về Titan cuối');
+  assert(testHook.TITANS.every((d) => typeof d.lore === 'string' && d.lore.length > 80), 'màn chọn: mỗi Titan có cốt truyện');
+  // Chỉ số 1–5: mỗi Titan có đủ hạng 5/4/3/2, mỗi chỉ số đúng một Titan ở mỗi hạng; thứ hạng khớp số liệu chiến đấu thật
+  {
+    const TT = testHook.TITANS;
+    const keys = { armor: (d) => d.hp, speed: (d) => d.speed, power: (d) => d.power, energy: (d) => d.regen };
+    assert(TT.every((d) => [...Object.values(d.stats)].sort().join() === '2,3,4,5'), 'chỉ số: mỗi Titan có đủ một top 1, top 2, top 3, top 4 (5/4/3/2)');
+    for (const [k, real] of Object.entries(keys)) {
+      assert(TT.map((d) => d.stats[k]).sort().join() === '2,3,4,5', `chỉ số ${k}: mỗi hạng đúng một Titan`);
+      const byStat = [...TT].sort((a, b) => b.stats[k] - a.stats[k]).map((d) => d.id).join();
+      const byReal = [...TT].sort((a, b) => real(b) - real(a)).map((d) => d.id).join();
+      assert(byStat === byReal && new Set(TT.map(real)).size === TT.length, `chỉ số ${k} khớp số liệu thật (${byStat})`);
+    }
+  }
+  const gen = Object.fromEntries(testHook.TITANS.map((d) => [d.id, d.series]));
+  assert(gen.vanguard === 'Eye-3' && gen.tempest === 'Eye-5' && gen.bastion === 'Eye-1' && gen.bulwark === 'Eye-1', 'thế hệ robot: Vanguard Eye-3, Tempest Eye-5, Bastion/Bulwark Eye-1');
+  tap1('Escape');
+  assert(game.state === 'title', 'màn chọn: ESC quay lại menu');
+  tap1('Enter'); step(20);
+  assert(game.state === 'select' && game.pick === 0, 'màn chọn mở lại ở Titan đang dùng');
+}
 step(20);
 press('Enter'); step(1); release('Enter');
 assert(game.state === 'deploy' && game.deploy.full && game.deploy.t === 0, 'chọn Titan → phim xuất kích đầy đủ (giáp, buồng lái, máy bay)');
@@ -107,6 +136,24 @@ assert(game.state === 'deploy' && game.deploy.full && game.deploy.t === 0, 'ch�
 }
 assert(game.state === 'fight' && game.wave === 0 && game.titan.def.id === 'vanguard', 'hết phim → bắt đầu đợt 1 với VANGUARD');
 
+{
+  // Màu chủ đạo (signature) mỗi Titan: có, không trùng, sắc độ cách nhau đủ xa để nhìn là phân biệt được
+  const hue = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return 0;
+    const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  };
+  const T4 = testHook.TITANS;
+  assert(T4.every((d) => /^#[0-9a-f]{6}$/i.test(d.profile_color || '')), 'mỗi Titan có màu chủ đạo (profile_color)');
+  let minGap = 360;
+  for (let i = 0; i < T4.length; i++) for (let j = i + 1; j < T4.length; j++) {
+    const g = Math.abs(hue(T4[i].profile_color) - hue(T4[j].profile_color));
+    minGap = Math.min(minGap, Math.min(g, 360 - g));
+  }
+  assert(minGap >= 35, `màu chủ đạo các Titan không trùng nhau (sắc độ cách nhau tối thiểu ${Math.round(minGap)}°)`);
+}
 // Bot chơi khá (test/bots.js): phản đòn, né lao húc, đồng bộ đúng nhịp.
 const { makeSkilledBot } = require('./bots');
 const skilled = makeSkilledBot();
@@ -403,7 +450,7 @@ checkUlt('BASTION', 'salvo');
   assert(game.state === 'clear', `BASTION hạ gục quái đợt 1 (${(f / 60).toFixed(1)}s)`);
   step(200); // diễn ăn mừng
 }
-// Chọn BULWARK (Titan thứ tư, dòng Eye1), chơi đợt 1: móc thủy lực, cầu lửa hai mắt, đấm điện lao chéo, quá tải hạt nhân.
+// Chọn BULWARK (Titan thứ tư, thế hệ Eye-1), chơi đợt 1: móc thủy lực, cầu lửa hai mắt, đấm điện lao chéo, quá tải hạt nhân.
 ['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK', 'KeyI', 'KeyW'].forEach(release);
 testHook.toTitle(); step(2);
 press('Enter'); step(1); release('Enter');
@@ -412,7 +459,7 @@ for (let i = 0; i < 4 && game.pick !== 3; i++) { press('KeyD'); step(1); release
 assert(game.pick === 3, 'D chuyển sang Titan thứ tư');
 press('Enter'); step(1); release('Enter');
 skipDeploy('bulwark');
-assert(game.state === 'fight' && game.titan.def.id === 'bulwark' && game.titan.def.series === 'Eye1', 'chọn BULWARK (dòng Eye1)');
+assert(game.state === 'fight' && game.titan.def.id === 'bulwark' && game.titan.def.series === 'Eye-1', 'chọn BULWARK (thế hệ Eye-1)');
 assert(!!sandbox.EyeRimBulwark && typeof sandbox.EyeRimBulwark.drawInGame === 'function', 'bộ vẽ Bulwark (src/titans/bulwark.js) đã nạp vào game');
 checkSpecial('BULWARK');
 {
@@ -571,12 +618,13 @@ tapKey('Space');
   const prevTitan = game.train.titan;
   game.train.titan = 0;
   game.train.idx = 0;
-  tapKey('KeyM');
-  assert(game.state === 'training', 'M ở mục khác không mở mô phỏng');
+  tapKey('KeyX');
+  assert(game.state === 'training', 'X ở mục khác không mở mô phỏng');
   const ultIdx = testHook.trainMoves(testHook.TITANS[0]).findIndex((m) => m.clip === 'ultimate');
   game.train.idx = ultIdx;
-  tapKey('KeyM');
-  assert(game.state === 'ultdemo' && game.kaiju && game.titan && game.buildings.length > 0, 'M ở mục chiêu đặc biệt F+J mở mô phỏng (có quái và thành phố)');
+  tapKey('KeyX');
+  assert(game.state === 'ultdemo' && game.kaiju && game.titan && game.buildings.length > 0, 'X ở mục chiêu đặc biệt F+J mở mô phỏng (có quái và thành phố)');
+  assert(!testHook.audioCfg.muted, 'mở mô phỏng không tắt tiếng game (M vẫn chỉ là phím bật/tắt tiếng)');
   for (let ti = 0; ti < testHook.TITANS.length; ti++) {
     if (ti > 0) tapKey('KeyD');
     const def = testHook.TITANS[ti];

@@ -699,7 +699,7 @@
     const i = base.idlePreview(time), ratio = ratioV();
     return { bob: i.bob * ratio, far: i.breathe.L * ratio, near: i.breathe.R * ratio };
   }
-  // Cùng nhịp F/J với Bastion (dòng Eye1); khoảng nghỉ chỉ dành cho vòng xem mẫu.
+  // Cùng nhịp F/J với Bastion (thế hệ Eye-1); khoảng nghỉ chỉ dành cho vòng xem mẫu.
   // Không phụ thuộc bastion.js: trong trận bộ vẽ này chạy độc lập trên EyeRimCore.
   const punchTimings = {
     jab: { windup: .07, active: .08, recover: .16, pause: .7 },
@@ -721,7 +721,7 @@
     const heavy = ult ? ult.raise : 0;
     const diagonal = clip === 'special' ? diagonalPunchPose(time) : null;
     const uppercut = clip === 'blade' ? uppercutPose(time) : null;
-    // Dòng Eye1: F dùng tay phải (gần), J dùng tay trái (xa), như Bastion.
+    // Thế hệ Eye-1: F dùng tay phải (gần), J dùng tay trái (xa), như Bastion.
     const punchArm = clip === 'jab' ? 'right' : clip === 'hook' ? 'left' : null;
     return { clip, t, time, walk, gait, idle, hit, celebration, punch, punchArm, heavy, ult, uppercut, diagonal,
       eyeFire: clip === 'cannon' ? eyeFirePose(time) : ult ? ult.eyes : null,
@@ -850,8 +850,8 @@
   if (!window.TitanGallery) return;
   window.TitanGallery = {
     ...base, names: { ...base.names, bulwark: names },
-    specs: { ...base.specs, bulwark: { crown, sole, eyeTop, scale, profileZoom: 1.65, series: 'Eye1',
-      note: 'Dòng Eye1 · F: đấm phải · J: đấm trái, cùng bố trí với Bastion. Động cơ hạt nhân. Mốc chiều cao vẽ: từ mặt đất tới cạnh trên hai mắt tròn. Phần đầu trụ nhô cao hơn mốc này.' } },
+    specs: { ...base.specs, bulwark: { crown, sole, eyeTop, scale, profileZoom: 1.65, series: 'Eye-1',
+      note: 'Thế hệ Eye-1 · F: đấm phải · J: đấm trái, cùng bố trí với Bastion. Động cơ hạt nhân. Mốc chiều cao vẽ: từ mặt đất tới cạnh trên hai mắt tròn. Phần đầu trụ nhô cao hơn mốc này.' } },
     draw(target, id, ...args) { return id === 'bulwark' ? draw(target, ...args) : base.draw(target, id, ...args); },
   };
 })();

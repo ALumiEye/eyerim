@@ -148,7 +148,7 @@ const checkShots = path.join(os.tmpdir(), 'eyerim-check-shots');
         await page.locator('#timeline').fill('0');
       }
       if (['bastion', 'bulwark'].includes(titan)) {
-        assert((await page.locator('header').innerText()).includes('Dòng Eye1'), 'hiển thị dòng Eye1 trong thông số');
+        assert((await page.locator('header').innerText()).includes('Thế hệ Eye-1'), 'hiển thị thế hệ Eye-1 trong thông số');
         assert.equal(await page.locator('[data-clip="jab"]').innerText(), 'F · Đấm phải');
         assert.equal(await page.locator('[data-clip="hook"]').innerText(), 'J · Đấm trái');
       }

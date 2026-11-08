@@ -678,7 +678,7 @@
     ...base,
     names: { ...base.names, bastion: names },
     punchTimings, punchPose, hammerPose, hammerPeriod, missileVolley, jetSlam, jetSlamPose, celebrationPose, staggerPose,
-    specs: { ...base.specs, bastion: { crown, sole, scale: modelScale, profileZoom: 1.65, label: (base.specs.bastion && base.specs.bastion.label) || '84 m · 2.950 tấn', series: 'Eye1', note: 'Dòng Eye1 · F: đấm phải · J: đấm trái, cùng bố trí với Bulwark. Dáng ngang 3/4 · giáp hạng nặng · hai pháo sau vai.' } },
+    specs: { ...base.specs, bastion: { crown, sole, scale: modelScale, profileZoom: 1.65, label: (base.specs.bastion && base.specs.bastion.label) || 'Thế hệ Eye-1 · 85 m · 2.360 tấn', series: 'Eye-1', note: 'Thế hệ Eye-1 · F: đấm phải · J: đấm trái, cùng bố trí với Bulwark. Dáng ngang 3/4 · giáp hạng nặng · hai pháo sau vai.' } },
     draw(target, id, ...args) { return id === 'bastion' ? draw(target, ...args) : base.draw(target, id, ...args); },
   };
 })();

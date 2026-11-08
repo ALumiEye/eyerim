@@ -1,6 +1,6 @@
 # eyerim — TIDEBREAKER
 
-Game hành động 2D chạy trên trình duyệt thuộc hệ dự án alumieye. Hai phi công cùng điều khiển một Titan-Frame cao 80 m để chặn quái vật Abyssal trước khi chúng san phẳng thành phố ven biển.
+Game hành động 2D chạy trên trình duyệt thuộc hệ dự án alumieye. Hai phi công cùng điều khiển một Titan-Frame cao gần 80 m để chặn quái vật Abyssal trước khi chúng san phẳng thành phố ven biển.
 
 > Năm 2049, các khe nứt dưới đáy Thái Bình Dương thả ra quái vật Abyssal. Hãy giữ vững bờ biển.
 
@@ -18,6 +18,10 @@ Game hành động 2D chạy trên trình duyệt thuộc hệ dự án alumieye
 
 Phiên bản đang chạy hiện ở cạnh dưới khung màn hình (tag Release, hoặc `main · <commit>` trên Pages).
 
+## Chọn Titan
+
+Trước trận là màn chọn kiểu gallery: một Titan lớn ở giữa, `◀ ▶` hoặc `A`/`D` để đổi Titan, phím `1`–`4` nhảy thẳng tới Titan. Bên phải có đủ chỉ số, máu, tốc độ, chiều cao, khối lượng, cốt truyện và vũ khí; dải nhỏ phía dưới cho biết còn những Titan nào. `Enter` xuất kích, `Esc` quay lại.
+
 ## Chế độ chơi
 
 Menu chính: `W`/`S` (hoặc `↑`/`↓`, phím `1`–`5`) để chọn, `Enter` để bắt đầu, `H` xem hướng dẫn.
@@ -30,7 +34,7 @@ Menu chính: `W`/`S` (hoặc `↑`/`↓`, phím `1`–`5`) để chọn, `Enter`
 
 Kỷ lục lưu trong `localStorage` của trình duyệt.
 
-**Huấn luyện phi công** (mục 04): xem Titan diễn từng chiêu (đứng im, di chuyển, lướt né, đỡ, đấm trái/phải, vũ khí K, vũ khí L, chiêu I, chiêu đặc biệt, ăn mừng). Kèm bảng chỉ số lấy thẳng từ số liệu chiến đấu: sát thương, tầm, năng lượng, đẩy lùi, thời gian gồng / ra đòn / hồi. Không có quái để đánh. `W`/`S` hoặc `1`–`0` chọn chiêu (phím số chọn nhanh 10 mục đầu), `A`/`D` đổi Titan, `Space` dừng/phát, `R` lật hướng, `Esc` về menu. Ở mục chiêu đặc biệt (`F+J`), nút **▶ Xem với quái thật** (hoặc phím `M`) mở cảnh toàn màn hình với thành phố, bờ biển và một con quái thật: Titan tung chiêu bằng đúng logic trận đấu, hiện sát thương thật rồi tự phát lại; `A`/`D` đổi Titan, `Enter` phát lại, `Esc` quay lại mục đó. Màn Huấn luyện dùng đúng bộ vẽ của trận đấu.
+**Huấn luyện phi công** (mục 04): xem Titan diễn từng chiêu (đứng im, di chuyển, lướt né, đỡ, đấm trái/phải, vũ khí K, vũ khí L, chiêu I, chiêu đặc biệt, ăn mừng). Kèm bảng chỉ số lấy thẳng từ số liệu chiến đấu: sát thương, tầm, năng lượng, đẩy lùi, thời gian gồng / ra đòn / hồi. Không có quái để đánh. `W`/`S` hoặc `1`–`0` chọn chiêu (phím số chọn nhanh 10 mục đầu), `A`/`D` đổi Titan, `Space` dừng/phát, `R` lật hướng, `Esc` về menu. Ở mục chiêu đặc biệt (`F+J`), nút **▶ Xem với quái thật** (hoặc phím `X`) mở cảnh toàn màn hình với thành phố, bờ biển và một con quái thật: Titan tung chiêu bằng đúng logic trận đấu, hiện sát thương thật rồi tự phát lại; `A`/`D` đổi Titan, `Enter` phát lại, `Esc` quay lại mục đó. Màn Huấn luyện dùng đúng bộ vẽ của trận đấu.
 
 ## Điều khiển
 
@@ -42,7 +46,7 @@ Kỷ lục lưu trong `localStorage` của trình duyệt.
 | | | `I` | cú đấm phản lực (25 năng lượng) |
 | `F` | đấm trái | | |
 
-Bảng trên theo Vanguard. Tempest, Bastion và Bulwark dùng cùng phím, khác vũ khí K/L/I (xem mục Bốn Titan). **Dòng Eye1 (Bastion, Bulwark) đảo tay đấm:** `F` đấm tay phải, `J` đấm tay trái.
+Bảng trên theo Vanguard. Tempest, Bastion và Bulwark dùng cùng phím, khác vũ khí K/L/I (xem mục Bốn Titan). **Thế hệ Eye-1 (Bastion, Bulwark) đảo tay đấm:** `F` đấm tay phải, `J` đấm tay trái.
 
 `H` hướng dẫn · `Esc`/`P` (hoặc nút ⏸ góc phải dưới) mở menu tạm dừng: tiếp tục, cài đặt âm thanh, hướng dẫn, chơi lại, thoát về menu chính · `M` bật/tắt tiếng
 
@@ -89,7 +93,7 @@ Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp I
 
 Bastion **đảo tay đấm**: F đấm tay phải, J đấm tay trái (cùng tay với búa K), nên F+K vẫn là hai phi công đánh hai tay khác nhau. Bastion trâu và đánh đau nhất nhưng chậm, hồi năng lượng chậm hơn (×0,8): hợp lối chơi đứng tấn, đỡ đòn và phản đòn bằng búa.
 
-Bulwark cùng dòng Eye1 nên cũng F tay phải, J tay trái (cùng tay với móc K). Chậm nhất trong bốn Titan, hồi năng lượng ×0,8. K biến hình tay trái thành nắm đấm lớn bọc sét vàng rồi móc lên; I tích điện khi đứng yên rồi lao chéo thẳng vào quái; chiêu đặc biệt Quá tải hạt nhân: toàn thân tích điện, hai vòi dưới nắm đấm phun lửa, hai mắt phóng hai cầu lửa vào quái.
+Bulwark cùng thế hệ Eye-1 nên cũng F tay phải, J tay trái (cùng tay với móc K). Chậm nhất trong bốn Titan, hồi năng lượng ×0,8. K biến hình tay trái thành nắm đấm lớn bọc sét vàng rồi móc lên; I tích điện khi đứng yên rồi lao chéo thẳng vào quái; chiêu đặc biệt Quá tải hạt nhân: toàn thân tích điện, hai vòi dưới nắm đấm phun lửa, hai mắt phóng hai cầu lửa vào quái.
 
 ## Thông số kỹ thuật Titan
 
@@ -97,10 +101,10 @@ Thông số hư cấu của EyeRim, không phải số liệu chính thức củ
 
 | Titan | Chiều cao | Khối lượng chiến đấu | Đặc điểm |
 |---|---:|---:|---|
-| Vanguard | 80 m | 2.400 tấn | Giáp nặng, lò phản ứng ngực, pháo plasma biến hình |
-| Tempest | 80 m | 1.850 tấn | Khung nhẹ cơ động, lưỡi kép, bệ phóng tên lửa |
-| Bastion | 84 m | 2.950 tấn | Pháo binh hạng nặng: búa thủy lực, hai pháo vai phóng tên lửa lớn |
-| Bulwark | — | — | Dòng Eye1, động cơ hạt nhân, buồng lái vàng trượt trong rãnh ngực (chưa có số liệu chiều cao/khối lượng) |
+| Vanguard | 79 m | 2.050 tấn | Giáp nặng, lò phản ứng ngực, pháo plasma biến hình |
+| Tempest | 76 m | 1.780 tấn | Khung nhẹ cơ động, lưỡi kép, bệ phóng tên lửa |
+| Bastion | 85 m | 2.360 tấn | Pháo binh hạng nặng: búa thủy lực, hai pháo vai phóng tên lửa lớn |
+| Bulwark | 86 m | 2.480 tấn | Thế hệ Eye-1, động cơ hạt nhân, buồng lái vàng trượt trong rãnh ngực |
 
 Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, không tính vây lưng. Bộ vẽ thu/phóng đồng nhất cả hai trục để mọi Titan cao bằng nhau mà không đổi tỷ lệ đầu, thân hay tay chân. Thông số xuất hiện trên thẻ chọn Titan và trang xem mẫu; không thay đổi HP, tốc độ hay sát thương.
 

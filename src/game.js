@@ -93,6 +93,11 @@
     return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
   }
 
+  // '#rrggbb' + độ trong suốt → 'rgba(...)' (dùng cho màu profile_color của Titan)
+  function hexA(hex, a) {
+    const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return `rgba(${v[0]},${v[1]},${v[2]},${a})`;
+  }
   function rr(x, y, w, h, r) {
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
@@ -575,13 +580,19 @@
   // moves: đòn thay thế cho ô K (blade) và L (cannon) của Titan đó.
   const TITANS = [
     {
+      // profile_color: MÀU CHỦ ĐẠO của Titan (mã màu cố định, đã chốt) trên giao diện: tab, thẻ chọn, HUD, phim xuất kích… — xanh thép (giáp xanh, lò cam).
+      // Không trùng màu Titan khác; KHÔNG dùng để sơn thân robot (thân dùng pal).
+      profile_color: '#4d8dff',
       id: 'vanguard', name: 'EYERIM VANGUARD', role: 'CHIẾN ĐẤU TRỰC DIỆN · GIÁP NẶNG',
+      // CỐT TRUYỆN (bản nháp do trợ lý viết từ các chi tiết đã có — người dùng duyệt/sửa tại đây)
+      lore: 'Titan-Frame trực diện của chương trình EyeRim, dựng lên khi các khe nứt dưới đáy Thái Bình Dương thả quái vật Abyssal vào bờ năm 2049. Giáp xanh thép dày, lò phản ứng trên ngực vừa nuôi cả cỗ máy vừa là đòn cuối: Xung lò phản ứng. Hai phi công nối Neural Link, mỗi người giữ một nửa thân.',
       desc: 'Giáp xanh thép, vai sọc trắng, kính vàng và lò cam. Kiếm xích tầm xa, pháo plasma nạp lực.',
       // Thông số hư cấu EyeRim; chiều cao đo từ đế chân đến đỉnh đầu, không tính vây.
-      heightM: 80, massTonnes: 2400,
+      series: 'Eye-3', heightM: 79, massTonnes: 2050, // thế hệ robot (người dùng xác nhận); số mét/tấn hư cấu, chỉ hiển thị
       model: { crown: 396 + BODY_LIFT, sole: 4 },
-      hp: 150, speed: 270, power: 1, quick: 1, regen: 1,
-      stats: { armor: 5, speed: 3, power: 4, energy: 3 },
+      // stats: hạng 1–4 → điểm 5/4/3/2; mỗi chỉ số đúng một Titan ở mỗi hạng, khớp số liệu thật (HP, speed, power, regen)
+      hp: 150, speed: 270, power: 0.9, quick: 1, regen: 1.35,
+      stats: { armor: 3, speed: 4, power: 2, energy: 5 }, // top 1: năng lượng (lò phản ứng)
       weapons: [['I', 'Đấm phản lực — lao tới, chắc trúng'], ['K', 'Kiếm xích — chém nặng, tầm xa'], ['L', 'Pháo plasma — giữ để nạp, thả để bắn']],
       special: 'jetpunch',
       ult: 'reactor', ultName: 'XUNG LÒ PHẢN ỨNG',
@@ -593,12 +604,18 @@
       moves: {},
     },
     {
+      // profile_color: MÀU CHỦ ĐẠO của Titan (mã màu cố định, đã chốt) trên giao diện: tab, thẻ chọn, HUD, phim xuất kích… — vàng (viền vàng giáp bạc, tên lửa).
+      // Không trùng màu Titan khác; KHÔNG dùng để sơn thân robot (thân dùng pal).
+      profile_color: '#f5cf3f',
       id: 'tempest', name: 'EYERIM TEMPEST', role: 'TẤN CÔNG CHỚP NHOÁNG · CƠ ĐỘNG',
+      // CỐT TRUYỆN (bản nháp do trợ lý viết từ các chi tiết đã có — người dùng duyệt/sửa tại đây)
+      lore: 'Khung giáp bạc nhẹ và nhanh nhất đội EyeRim, sinh ra để đánh chặn trước khi quái kịp lên bờ. Lưỡi kép bật ra từ cổ tay cho những đòn chém chớp nhoáng, bệ ngực phóng 6 tên lửa; khi Link đầy, Tempest gọi mưa tên lửa từ vệ tinh trút thẳng xuống quái.',
       desc: 'Giáp bạc xám kiểu Striker Eureka, vai rộng và kính tối. Lưỡi kép cổ tay, ngực phóng 6 tên lửa.',
-      heightM: 80, massTonnes: 1850,
+      series: 'Eye-5', heightM: 76, massTonnes: 1780, // thế hệ robot (người dùng xác nhận); số mét/tấn hư cấu, chỉ hiển thị
       model: { crown: 372 + BODY_LIFT, sole: 0 },
-      hp: 125, speed: 340, power: 0.9, quick: 0.75, regen: 1.3,
-      stats: { armor: 3, speed: 5, power: 3, energy: 5 },
+      // stats: hạng 1–4 → điểm 5/4/3/2; mỗi chỉ số đúng một Titan ở mỗi hạng, khớp số liệu thật (HP, speed, power, regen)
+      hp: 125, speed: 340, power: 1.1, quick: 0.75, regen: 1.0,
+      stats: { armor: 2, speed: 5, power: 4, energy: 3 }, // top 1: tốc độ, top 2: hỏa lực
       weapons: [['I', 'Đập phản lực — bay lên, nện xuống đầu quái'], ['K', 'Lưỡi kép cổ tay — chém nhanh, choáng'], ['L', '6 tên lửa — giữ đủ 2s mới phóng, nạp lại 4,5s']],
       special: 'leap',
       ult: 'orbital', ultName: 'MƯA TÊN LỬA VỆ TINH',
@@ -617,12 +634,18 @@
     },
     {
       // BASTION: bộ vẽ game ở src/titans/bastion.js (bản thiết kế ở xưởng titans/, đưa vào bằng npm run promote). Pháo binh hạng nặng: trâu, chậm, đòn nặng mạnh.
+      // profile_color: MÀU CHỦ ĐẠO của Titan (mã màu cố định, đã chốt) trên giao diện: tab, thẻ chọn, HUD, phim xuất kích… — đỏ (vạch đỏ, pháo binh).
+      // Không trùng màu Titan khác; KHÔNG dùng để sơn thân robot (thân dùng pal).
+      profile_color: '#e8463c',
       id: 'bastion', name: 'EYERIM BASTION', role: 'PHÁO BINH HẠNG NẶNG · CHỐNG CHỊU',
-      desc: 'Dòng Eye1: F đấm phải, J đấm trái. Giáp xám ô-liu, vạch đỏ, kính xanh dọc. Búa thủy lực tay trái, hai pháo vai phóng tên lửa lớn.',
-      series: 'Eye1', heightM: 84, massTonnes: 2950,
+      // CỐT TRUYỆN (bản nháp do trợ lý viết từ các chi tiết đã có — người dùng duyệt/sửa tại đây)
+      lore: 'Titan thế hệ Eye-1, pháo binh hạng nặng giữ phòng tuyến. Hai pháo vai bắn tên lửa lớn tự dẫn, tay trái hóa búa thủy lực móc từ dưới lên. Chậm và trâu, Bastion đứng tấn chịu đòn thay thành phố rồi đáp trả bằng loạt pháo kép.',
+      desc: 'Thế hệ Eye-1: F đấm phải, J đấm trái. Giáp xám ô-liu, vạch đỏ, kính xanh dọc. Búa thủy lực tay trái, hai pháo vai phóng tên lửa lớn.',
+      series: 'Eye-1', heightM: 85, massTonnes: 2360,
       model: { crown: 540, sole: 9 },
-      hp: 165, speed: 235, power: 1, quick: 1, regen: 0.8,
-      stats: { armor: 5, speed: 2, power: 5, energy: 2 },
+      // stats: hạng 1–4 → điểm 5/4/3/2; mỗi chỉ số đúng một Titan ở mỗi hạng, khớp số liệu thật (HP, speed, power, regen)
+      hp: 165, speed: 235, power: 1.15, quick: 1, regen: 0.8,
+      stats: { armor: 4, speed: 3, power: 5, energy: 2 }, // top 1: hỏa lực (pháo binh)
       weapons: [['I', 'Búa phản lực — bay lên, phang búa xuống'], ['K', 'Búa móc — móc từ dưới lên, tầm xa'], ['L', 'Tên lửa kép — giữ để nạp, thả để phóng']],
       special: 'leap',
       ult: 'salvo', ultName: 'LOẠT PHÁO KÉP',
@@ -648,13 +671,19 @@
     {
       // BULWARK: bộ vẽ game ở src/titans/bulwark.js (bản thiết kế ở xưởng titans/, đưa vào bằng npm run promote). Pháo đài cận chiến: trâu nhất, chậm nhất.
       // Chưa có số mét/khối lượng được xác nhận → để trống, không tự đặt.
+      // profile_color: MÀU CHỦ ĐẠO của Titan (mã màu cố định, đã chốt) trên giao diện: tab, thẻ chọn, HUD, phim xuất kích… — xanh lá (giáp ô-liu, động cơ hạt nhân).
+      // Không trùng màu Titan khác; KHÔNG dùng để sơn thân robot (thân dùng pal).
+      profile_color: '#6fd14a',
       id: 'bulwark', name: 'EYERIM BULWARK', role: 'PHÁO ĐÀI CẬN CHIẾN · ĐỘNG CƠ HẠT NHÂN',
-      desc: 'Dòng Eye1: F đấm phải, J đấm trái. Giáp xanh ô-liu, đầu trụ cao, buồng lái vàng trong rãnh ngực. Móc thủy lực sét vàng, phun lửa hai mắt.',
-      series: 'Eye1',
+      // CỐT TRUYỆN (bản nháp do trợ lý viết từ các chi tiết đã có — người dùng duyệt/sửa tại đây)
+      lore: 'Titan thế hệ Eye-1 chạy bằng động cơ hạt nhân, pháo đài cận chiến trâu và chậm nhất đội. Buồng lái kính vàng nằm trong rãnh giữa thân, trượt lên xuống trên ray như thang máy. Nắm đấm thủy lực bọc sét vàng, hai mắt phun lửa; khi quá tải hạt nhân, toàn thân tích điện và trút lửa vào quái.',
+      desc: 'Thế hệ Eye-1: F đấm phải, J đấm trái. Giáp xanh ô-liu, đầu trụ cao, buồng lái vàng trong rãnh ngực. Móc thủy lực sét vàng, phun lửa hai mắt.',
+      series: 'Eye-1', heightM: 86, massTonnes: 2480, // cao và nặng nhất đội
       // Mốc chiều cao vẽ: cạnh trên hai mắt tròn (tâm y=-492, bán kính dọc 29, nghiêng -0,14 rad), không lấy đỉnh trụ.
       model: { crown: 492 + Math.hypot(26 * Math.sin(0.14), 29 * Math.cos(0.14)), sole: 8 },
-      hp: 165, speed: 220, power: 1, quick: 1, regen: 0.8,
-      stats: { armor: 5, speed: 1, power: 5, energy: 3 },
+      // stats: hạng 1–4 → điểm 5/4/3/2; mỗi chỉ số đúng một Titan ở mỗi hạng, khớp số liệu thật (HP, speed, power, regen)
+      hp: 175, speed: 220, power: 1, quick: 1, regen: 1.1,
+      stats: { armor: 5, speed: 2, power: 3, energy: 4 }, // top 1: giáp (pháo đài), top 2: năng lượng (động cơ hạt nhân)
       weapons: [['I', 'Đấm điện lao chéo — lao lên, nắm đấm dẫn đầu'], ['K', 'Móc thủy lực — móc từ dưới lên, sét vàng'], ['L', 'Phun lửa hai mắt — giữ để nạp, thả 2 cầu lửa']],
       special: 'dive',
       ult: 'overload', ultName: 'QUÁ TẢI HẠT NHÂN',
@@ -2904,10 +2933,11 @@
       return;
     }
     game.mode = m.id;
-    game.state = game.mode === 'duel' ? 'duel' : 'select';
-    game.stateT = 0;
-    game.pick = game.titanIdx;
     game.showHelp = false;
+    if (game.mode === 'duel') {
+      game.state = 'duel';
+      game.stateT = 0;
+    } else openFightPicker();
     sfx.buy();
   }
 
@@ -3051,29 +3081,15 @@
           game.state = 'title';
           game.stateT = 0;
         } else if (game.stateT > 0.2 && tapAny('Enter', 'NumpadEnter', 'Space')) {
-          game.state = 'select';
-          game.stateT = 0;
-          game.pick = game.titanIdx;
+          openFightPicker();
           sfx.buy();
         }
         return;
       }
-      case 'select': {
+      case 'select':
         game.cam = clamp(1100 + Math.sin(game.t * 0.08) * 900, 0, WORLD_W - W);
-        const d = (tapAny('KeyD', 'ArrowRight') ? 1 : 0) - (tapAny('KeyA', 'ArrowLeft') ? 1 : 0);
-        if (d) {
-          game.pick = (game.pick + d + TITANS.length) % TITANS.length;
-          sfx.dash();
-        }
-        if (tapAny('Escape')) {
-          game.state = game.mode === 'duel' ? 'duel' : 'title';
-          game.stateT = 0;
-        } else if (game.stateT > 0.2 && tapAny('Enter', 'NumpadEnter', 'Space')) {
-          game.titanIdx = game.pick;
-          newRun(true);
-        }
+        updateTitanPicker(dt);
         return;
-      }
       case 'deploy':
         updateDeploy(dt);
         return;
@@ -4659,7 +4675,7 @@
 
   function titanSpecLabel(def) {
     const parts = [];
-    if (def.series) parts.push(`Dòng ${def.series}`);
+    if (def.series) parts.push(`Thế hệ ${def.series}`);
     if (def.heightM) parts.push(`${def.heightM} m`);
     if (def.massTonnes) parts.push(`${def.massTonnes.toLocaleString('vi-VN')} tấn`);
     return parts.join(' · ');
@@ -5978,7 +5994,7 @@
     if (!U || U.t > 1.1) return;
     const T = game.titan;
     const glow = T.def.ult === 'orbital' ? '#5dffb0' : '#7ff6ff';
-    const acc = T.def.pal.front.accent;
+    const acc = T.def.profile_color;
     const inK = easeOut(clamp(U.t / 0.2, 0, 1));
     const out = easeIn(clamp((U.t - 0.8) / 0.25, 0, 1));
     const by = 150;
@@ -6105,6 +6121,7 @@
     }
     if (line) text(line, x, yy, o);
     ctx.restore();
+    return yy; // y của dòng cuối (để xếp phần bên dưới)
   }
 
   function panel(x, y, w, h, border = 'rgba(120,190,255,0.25)') {
@@ -6140,7 +6157,7 @@
     // Titan
     panel(20, 16, 380, 104);
     text('TITAN-FRAME', 36, 38, { size: 12, color: '#7f9bb8' });
-    text(T.def.name, 36, 60, { size: 20 });
+    text(T.def.name, 36, 60, { size: 20, color: T.def.profile_color });
     const hpf = T.hp / T.maxHp;
     bar(36, 70, 348, 14, hpf, hpf < 0.3 ? '#ff5e4d' : '#4ff0a0', T.ghost / T.maxHp);
     text(`${Math.ceil(T.hp)} / ${T.maxHp}`, 384, 98, { size: 11, align: 'right', color: '#a9bdd2' });
@@ -6154,7 +6171,7 @@
     if (sp && sp.name === 'jet' && sp.t < sp.windup) {
       const k = sp.t / sp.windup;
       const x = T.x - game.cam - 70;
-      const col = T.def.pal.front.accent;
+      const col = T.def.profile_color;
       text(T.def.special === 'dive' ? 'TỤ CHIÊU · ĐẤM ĐIỆN LAO CHÉO' : T.def.special === 'leap' ? 'TỤ CHIÊU · ĐẬP PHẢN LỰC' : 'TỤ CHIÊU · ĐẤM PHẢN LỰC', x + 70, barY - 8, { size: 13, align: 'center', color: '#ffffff', glow: col, blur: 8 });
       bar(x, barY, 140, 10, k, col);
       text('trúng đòn = mất chiêu', x + 70, barY + 24, { size: 11, align: 'center', color: '#ff9b5e' });
@@ -6331,8 +6348,8 @@
     text('PHI CÔNG 1 · BÁN CẦU TRÁI', c1, y + 64, { size: 13, color: '#9fc1e0' });
     text('PHI CÔNG 2 · BÁN CẦU PHẢI', c2, y + 64, { size: 13, color: '#9fc1e0' });
     const def = game.titan ? game.titan.def : curDef();
-    // Dòng Eye1 (Bastion, Bulwark) đảo tay đấm: F tay phải, J tay trái (K là tay trái)
-    const eye1 = def.series === 'Eye1';
+    // Thế hệ Eye-1 (Bastion, Bulwark) đảo tay đấm: F tay phải, J tay trái (K là tay trái)
+    const eye1 = def.series === 'Eye-1';
     const l1 = [['A / D', 'di chuyển'], ['W', 'lướt né (20 năng lượng)'], ['S', 'giữ để đỡ đòn'], ['F', eye1 ? 'đấm phải' : 'đấm trái']];
     const l2 = def.fireballs
       ? [['J', 'đấm trái'], ['I', 'đấm điện lao chéo: lao lên giáng đòn (25 NL)'], ['K', 'móc thủy lực tay trái — đòn nặng'], ['L', 'giữ để nạp, thả để hai mắt phun 2 cầu lửa']]
@@ -7463,7 +7480,7 @@
 
   function drawSuitUp(lt) {
     const def = game.deploy.def;
-    const acc = def.pal.front.accent;
+    const acc = def.profile_color;
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#0b1424');
     bg.addColorStop(1, '#04070d');
@@ -7568,7 +7585,7 @@
 
   function drawConnPod(lt) {
     const def = game.deploy.def;
-    const acc = def.pal.front.accent;
+    const acc = def.profile_color;
     const hp = clamp((lt - 0.9) / 1.5, 0, 1);
     const dropK = clamp((lt - 3.0) / 0.25, 0, 1);
     ctx.save();
@@ -7801,7 +7818,7 @@
   function drawAirlift(lt) {
     const D = game.deploy;
     const def = D.def;
-    const acc = def.pal.front.accent;
+    const acc = def.profile_color;
     ctx.save();
     const splashAge = lt - SPLASH_T;
     if (splashAge > 0 && splashAge < 0.8) ctx.translate(rand(-1, 1) * 14 * (1 - splashAge / 0.8), rand(-1, 1) * 10 * (1 - splashAge / 0.8));
@@ -7981,7 +7998,7 @@
     const titles = ['TRANG BỊ GIÁP THẦN KINH', 'VÀO BUỒNG LÁI', 'VẬN CHUYỂN ĐƯỜNG KHÔNG'];
     const step = D.full ? `GIAI ĐOẠN ${scene + 1} / 3 · ` : '';
     text(step + titles[scene], 40, 36, { size: 15, weight: 900, color: '#7ff6ff' });
-    text(D.def.name, W - 40, 36, { size: 15, weight: 900, align: 'right', color: D.def.pal.front.accent });
+    text(D.def.name, W - 40, 36, { size: 15, weight: 900, align: 'right', color: D.def.profile_color });
     const subs = [
       'Cánh tay robot lắp từng mảnh giáp lên bộ đồ thần kinh của hai phi công',
       'Khóa giày từ tính · nối cáp cột sống · bắt tay thần kinh',
@@ -8009,7 +8026,7 @@
     const tempest = !!def.missiles;
     const bastion = !!def.shells;
     const bulwark = !!def.fireballs;
-    const eye1 = def.series === 'Eye1';
+    const eye1 = def.series === 'Eye-1';
     const short = def.name.replace('EYERIM ', '');
     const titleCase = short.charAt(0) + short.slice(1).toLowerCase();
     return [
@@ -8037,7 +8054,7 @@
       {
         clip: 'jab', key: 'F', name: eye1 ? 'ĐẤM PHẢI' : 'ĐẤM TRÁI', pilot: 'PHI CÔNG 1', dmg: jab.dmg, ...timing(jab),
         desc: eye1
-          ? `${titleCase} (dòng Eye1) đấm F bằng TAY PHẢI. Bấm cùng lúc với J để ĐỒNG BỘ (Link +${SYNC_LINK_LIGHT} nếu trúng); cùng lúc với ${bulwark ? 'móc' : 'búa'} K (tay trái) thì Link +${SYNC_LINK_HEAVY}. Đấm liên tiếp yếu dần.`
+          ? `${titleCase} (thế hệ Eye-1) đấm F bằng TAY PHẢI. Bấm cùng lúc với J để ĐỒNG BỘ (Link +${SYNC_LINK_LIGHT} nếu trúng); cùng lúc với ${bulwark ? 'móc' : 'búa'} K (tay trái) thì Link +${SYNC_LINK_HEAVY}. Đấm liên tiếp yếu dần.`
           : `Đòn nhanh nhất. Bấm cùng lúc với J để ĐỒNG BỘ (Link +${SYNC_LINK_LIGHT} nếu trúng); cùng lúc với K thì Link +${SYNC_LINK_HEAVY}. Đấm liên tiếp yếu dần.`,
         stats: [['SÁT THƯƠNG', String(jab.dmg)], ['TẦM ĐÁNH', jab.range + ' đv'], ['ĐẨY LÙI', String(jab.kb)], ['ĐỒNG BỘ F + J', '×' + String(SYNC_LIGHT).replace('.', ',') + ' · chờ ' + String(SYNC_COOLDOWN).replace('.', ',') + 's']],
       },
@@ -8126,8 +8143,9 @@
     if (dx) trainTitan((R.titan + dx + TITANS.length) % TITANS.length);
     if (tap('KeyR')) R.facing *= -1;
     if (tap('Space')) R.playing = !R.playing;
-    // M (hoặc bấm nút trên sân khấu) ở mục chiêu đặc biệt F+J: xem chiêu đánh vào quái thật trên bản đồ thật
-    if (TRAIN_MOVES[R.idx] === 'ultimate' && tap('KeyM')) {
+    // X (hoặc bấm nút trên sân khấu) ở mục chiêu đặc biệt F+J: xem chiêu đánh vào quái thật trên bản đồ thật.
+    // Không dùng M: M là phím bật/tắt tiếng toàn game (và được lưu lại).
+    if (TRAIN_MOVES[R.idx] === 'ultimate' && tap('KeyX')) {
       openUltDemo(R.titan);
       return;
     }
@@ -8265,7 +8283,7 @@
   function drawUltDemoHud() {
     const D = game.demo;
     const def = TITANS[D.titan];
-    const acc = def.pal.front.accent;
+    const acc = def.profile_color;
     const K = game.kaiju;
     ctx.fillStyle = 'rgba(2,8,16,0.72)';
     ctx.fillRect(0, 0, W, 64);
@@ -8276,7 +8294,7 @@
       const x = W - 40 - (TITANS.length - i) * (w + 8);
       const on = i === D.titan;
       if (on) {
-        ctx.fillStyle = d.pal.front.accent;
+        ctx.fillStyle = d.profile_color;
         rr(x, 16, w, 32, 6);
         ctx.fill();
       } else panel(x, 16, w, 32, 'rgba(120,190,255,0.25)');
@@ -8298,7 +8316,7 @@
     drawScanlines(0.03);
     const R = game.train;
     const def = TITANS[R.titan];
-    const acc = def.pal.front.accent;
+    const acc = def.profile_color;
     const moves = trainMoves(def);
     const M = moves[R.idx];
     text('HUẤN LUYỆN PHI CÔNG', 40, 58, { size: 32, weight: 900, color: '#ffffff', glow: '#ffd36b', blur: 14 });
@@ -8308,7 +8326,7 @@
       const w = 170;
       const x = W - 40 - (TITANS.length - i) * (w + 10);
       const on = i === R.titan;
-      const c = d.pal.front.accent;
+      const c = d.profile_color;
       if (on) {
         ctx.fillStyle = c;
         rr(x, 34, w, 40, 6);
@@ -8406,7 +8424,7 @@
       ctx.fillStyle = 'rgba(255,211,107,0.22)';
       rr(bx2 + bw2 - 40, by2 + 9, 26, 20, 4);
       ctx.fill();
-      text('M', bx2 + bw2 - 27, by2 + 23, { size: 11, weight: 900, align: 'center', color: '#ffd36b' });
+      text('X', bx2 + bw2 - 27, by2 + 23, { size: 11, weight: 900, align: 'center', color: '#ffd36b' });
       zone(bx2, by2, bw2, 38, () => openUltDemo(R.titan));
     }
     ctx.restore();
@@ -8447,7 +8465,7 @@
       }
       text(`TỔNG ${fmtS(total)}`, sx + sw, tl + 30, { size: 11, weight: 800, align: 'right', color: '#cfe0f0' });
     } else {
-      text(M.clip === 'ultimate' ? 'Bấm M để xem chiêu đánh vào quái thật trên bản đồ thật (đúng logic trận đấu)' : 'Chiêu không có pha gồng / ra đòn / hồi riêng', sx, tl + 12, { size: 12, weight: 500, color: '#6f87a0' });
+      text(M.clip === 'ultimate' ? 'Bấm X để xem chiêu đánh vào quái thật trên bản đồ thật (đúng logic trận đấu)' : 'Chiêu không có pha gồng / ra đòn / hồi riêng', sx, tl + 12, { size: 12, weight: 500, color: '#6f87a0' });
     }
 
     // bảng chỉ số
@@ -8482,7 +8500,7 @@
     }
     text('Lõi plasma (xưởng) +25% cho K, L và chiêu đặc biệt', px + 20, sy + ph2 - 16, { size: 10, weight: 500, color: '#6f87a0' });
 
-    text(`W / S hoặc 1–0 chọn chiêu  ·  A / D đổi Titan  ·  SPACE dừng / phát  ·  R lật hướng  ·  ENTER phát lại${M.clip === 'ultimate' ? '  ·  M xem với quái thật' : ''}  ·  ESC về menu`, W / 2 + 40, H - 22, { size: 13, align: 'center', weight: 600, color: '#9fc1e0' });
+    text(`W / S hoặc 1–0 chọn chiêu  ·  A / D đổi Titan  ·  SPACE dừng / phát  ·  R lật hướng  ·  ENTER phát lại${M.clip === 'ultimate' ? '  ·  X xem với quái thật' : ''}  ·  ESC về menu`, W / 2 + 40, H - 22, { size: 13, align: 'center', weight: 600, color: '#9fc1e0' });
     zone(40, H - 46, 140, 36, () => { game.titanIdx = R.titan; toTitle(); });
     text('◀ MENU', 50, H - 22, { size: 13, weight: 900, color: '#ffd36b' });
   }
@@ -8611,96 +8629,210 @@
     ctx.restore();
   }
 
-  function drawSelect() {
-    dim(0.62);
-    text('CHỌN TITAN', W / 2, 70, { size: 40, align: 'center', color: '#e8fbff', glow: '#4ff0ff', blur: 20, weight: 900 });
-    text(`${modeDef().name}${game.mode === 'duel' ? ` · ${WAVES[game.duel.kaiju].name} · ${DIFFS[game.duel.diff].name}` : ''} — chọn khung giáp cho hai phi công`, W / 2, 98, { size: 15, align: 'center', weight: 500, color: modeDef().color });
-    // Thẻ co theo số Titan để 3–4 thẻ vừa khung 1280px; 2 thẻ giữ bố cục rộng cũ.
-    // Từ 4 thẻ (compact): avatar hẹp, chữ nhỏ hơn, vũ khí chỉ ghi tên để không tràn khỏi thẻ.
-    const gap = TITANS.length > 3 ? 14 : TITANS.length > 2 ? 18 : 30;
-    const cw = Math.min(470, Math.floor((W - 60 - (TITANS.length - 1) * gap) / TITANS.length));
-    const wide = cw >= 470;
-    const compact = cw < 340;
-    const ch = 500;
-    const top = 124;
-    const STAT = [['armor', 'GIÁP'], ['speed', 'TỐC ĐỘ'], ['power', 'HỎA LỰC'], ['energy', 'NĂNG LƯỢNG']];
-    TITANS.forEach((def, i) => {
-      const sel = i === game.pick;
-      const x = W / 2 + (i - (TITANS.length - 1) / 2) * (cw + gap) - cw / 2;
-      const acc = def.pal.front.accent;
-      ctx.save();
-      ctx.globalAlpha = sel ? 1 : 0.55;
-      panel(x, top, cw, ch, sel ? acc : 'rgba(120,190,255,0.25)');
-      if (sel) {
-        ctx.save();
-        ctx.shadowColor = acc;
-        ctx.shadowBlur = 24;
-        ctx.strokeStyle = acc;
-        ctx.lineWidth = 2;
-        rr(x, top, cw, ch, 10);
-        ctx.stroke();
-        ctx.restore();
-      }
-      // khung avatar
-      const ax = x + 16;
-      const ay = top + 16;
-      const aw = wide ? 180 : compact ? 104 : 132;
-      const ah = 300;
-      const ag = ctx.createLinearGradient(0, ay, 0, ay + ah);
-      ag.addColorStop(0, 'rgba(30,50,80,0.6)');
-      ag.addColorStop(1, 'rgba(8,16,28,0.9)');
-      ctx.fillStyle = ag;
-      rr(ax, ay, aw, ah, 8);
-      ctx.fill();
-      ctx.save();
-      rr(ax, ay, aw, ah, 8);
-      ctx.clip();
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(ax, ay + ah - 26, aw, 26);
-      drawTitanAvatar(def, ax + aw / 2 - 4, ay + ah - 22, wide ? 0.92 : compact ? 0.68 : 0.8, sel);
-      ctx.restore();
-      // tên + vai trò
-      const tx = ax + aw + (wide ? 18 : 12);
-      const inner = x + cw - 14 - tx; // bề rộng cột chữ bên phải avatar
-      const barStep = Math.min(47, Math.floor(inner / 5));
-      text(def.name.replace('EYERIM ', ''), tx, top + 50, { size: wide ? 30 : compact ? 22 : 26, weight: 900, color: '#ffffff', glow: sel ? acc : null, blur: 12 });
-      text(compact ? 'TITAN-FRAME' : 'EYERIM · TITAN-FRAME', tx, top + 70, { size: 11, color: '#7f9bb8' });
-      wrapText(def.role, tx, top + 92, compact ? inner : cw - aw - 50, compact ? 14 : 16, { size: compact ? 11 : 12, color: acc });
-      // chỉ số
-      STAT.forEach(([k, label], j) => {
-        const y = compact ? top + 150 + j * 30 : top + 136 + j * 34;
-        text(label, tx, y, { size: 12, color: '#9fc1e0' });
-        for (let n = 0; n < 5; n++) {
-          ctx.fillStyle = n < def.stats[k] ? acc : 'rgba(255,255,255,0.1)';
-          rr(tx + n * barStep, y + 7, barStep - 5, 9, 3);
-          ctx.fill();
-        }
-      });
-      // thông số kỹ thuật: chiều cao + khối lượng (hư cấu EyeRim, chỉ hiển thị)
-      // Titan chưa có số liệu được xác nhận (Bulwark) hiện gạch ngang, không tự đặt số.
-      [['CHIỀU CAO', def.heightM ? `${def.heightM} m` : '—'], ['KHỐI LƯỢNG', def.massTonnes ? `${def.massTonnes.toLocaleString('vi-VN')} tấn` : '—']].forEach(([label, value], j) => {
-        const sx = tx + j * (wide ? 118 : compact ? Math.floor(inner / 2) : 100);
-        text(compact && j ? 'KH. LƯỢNG' : label, sx, top + 280, { size: compact ? 10 : 11, color: '#9fc1e0' });
-        text(value, sx, top + 300, { size: compact ? 14 : 17, weight: 800, color: '#efe3cc' });
-      });
-      text(`HP ${def.hp} · TỐC ĐỘ ${def.speed}`, tx, top + 322, { size: 12, weight: 500, color: '#cfe0f0' });
-      // mô tả + vũ khí
-      wrapText(def.desc, x + 20, top + 346, cw - 40, wide ? 19 : compact ? 15 : 17, { size: wide ? 14 : compact ? 12 : 13, weight: 500, color: '#cfe0f0' });
-      const wy = compact ? top + 418 : top + 404;
-      text('VŨ KHÍ', x + 20, wy, { size: 12, color: '#7f9bb8' });
-      [...def.weapons, ['★', (compact ? '' : 'Link 100%: ') + def.ultName]].forEach(([key, w], j) => {
-        const y = wy + 20 + j * (compact ? 20 : 22);
-        rr(x + 20, y - 15, 22, 20, 4);
-        ctx.fillStyle = 'rgba(255,211,107,0.15)';
-        ctx.fill();
-        text(key, x + 31, y, { size: 13, align: 'center', color: '#ffd36b' });
-        text(compact ? w.split(' — ')[0] : w, x + 52, y, { size: wide ? 14 : 12, weight: 500 });
-      });
-      ctx.restore();
-      if (sel) text('▼', x + cw / 2, top - 6, { size: 16, align: 'center', color: acc, alpha: 0.6 + 0.4 * Math.sin(game.t * 6) });
-    });
-    text('A / D hoặc ← / → để chọn  ·  ENTER xuất kích  ·  ESC quay lại', W / 2, top + ch + 34, { size: 15, align: 'center', weight: 500, color: '#9fc1e0' });
+  // ===== MÀN CHỌN TITAN (dùng lại được, kiểu gallery) =====
+  // openTitanPicker({ title, subtitle, subtitleColor, confirmLabel, start, onConfirm(idx), onBack() })
+  // Một Titan lớn ở giữa sân khấu, mũi tên ◀ ▶ (A/D) đổi Titan, bảng bên phải đủ chỉ số + cốt truyện + vũ khí,
+  // dải menu nhỏ phía dưới cho biết có những Titan nào (bấm hoặc phím 1–4 để nhảy tới).
+  const PICK_SLIDE = 0.35; // giây trượt khi đổi Titan
+  function openTitanPicker(opts) {
+    game.picker = { opts, from: null, dir: 1, t: 1 };
+    game.pick = clamp(opts.start == null ? game.titanIdx : opts.start, 0, TITANS.length - 1);
+    game.state = 'select';
+    game.stateT = 0;
   }
+  // Chọn Titan trước trận (Chiến dịch, Đua thời gian, Đấu tự do).
+  function openFightPicker() {
+    const duel = game.mode === 'duel';
+    openTitanPicker({
+      title: 'CHỌN TITAN',
+      subtitle: `${modeDef().name}${duel ? ` · ${WAVES[game.duel.kaiju].name} · ${DIFFS[game.duel.diff].name}` : ''} — chọn khung giáp cho hai phi công`,
+      subtitleColor: modeDef().color,
+      confirmLabel: 'XUẤT KÍCH',
+      onConfirm: (i) => { game.titanIdx = i; newRun(true); },
+      onBack: () => { game.state = duel ? 'duel' : 'title'; game.stateT = 0; },
+    });
+  }
+  function pickerGo(i, dir) {
+    const P = game.picker;
+    if (i === game.pick) return;
+    P.from = game.pick;
+    P.dir = dir || Math.sign(i - game.pick) || 1;
+    P.t = 0;
+    game.pick = i;
+    sfx.dash();
+  }
+  const pickerStep = (d) => pickerGo((game.pick + d + TITANS.length) % TITANS.length, d);
+  function updateTitanPicker(dt) {
+    const P = game.picker;
+    P.t = Math.min(1, P.t + dt / PICK_SLIDE);
+    const d = (tapAny('KeyD', 'ArrowRight') ? 1 : 0) - (tapAny('KeyA', 'ArrowLeft') ? 1 : 0);
+    if (d) pickerStep(d);
+    TITANS.forEach((_, i) => { if (tapAny('Digit' + (i + 1), 'Numpad' + (i + 1))) pickerGo(i); });
+    if (tapAny('Escape')) P.opts.onBack();
+    else if (game.stateT > 0.2 && tapAny('Enter', 'NumpadEnter', 'Space')) P.opts.onConfirm(game.pick);
+  }
+  function drawTitanPicker() {
+    const P = game.picker;
+    const def = TITANS[game.pick];
+    const acc = def.profile_color;
+    const e = easeOut(P.t);
+    dim(0.7);
+    // tiêu đề + chỉ số trang
+    text(P.opts.title, 40, 52, { size: 30, weight: 900, color: '#e8fbff', glow: '#4ff0ff', blur: 16 });
+    text(P.opts.subtitle, 40, 78, { size: 14, weight: 500, color: P.opts.subtitleColor || '#9fc1e0' });
+    text(`${String(game.pick + 1).padStart(2, '0')} / ${String(TITANS.length).padStart(2, '0')}`, W - 40, 56, { size: 22, weight: 900, align: 'right', color: acc });
+
+    // ---- sân khấu: Titan lớn ở giữa ----
+    const sx = 40;
+    const sy = 100;
+    const sw = 600;
+    const sh = 506;
+    panel(sx, sy, sw, sh, acc);
+    ctx.save();
+    rr(sx, sy, sw, sh, 10);
+    ctx.clip();
+    const cx = sx + sw / 2;
+    const gy = sy + sh - 34;
+    const glow = ctx.createRadialGradient(cx, gy - 190, 20, cx, gy - 190, 330);
+    glow.addColorStop(0, hexA(acc, 0.32));
+    glow.addColorStop(1, hexA(acc, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(sx, sy, sw, sh);
+    ctx.strokeStyle = hexA(acc, 0.12);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let gx = sx + 20; gx < sx + sw; gx += 40) { ctx.moveTo(gx, sy); ctx.lineTo(gx, sy + sh); }
+    ctx.stroke();
+    ctx.fillStyle = hexA(acc, 0.35);
+    ctx.beginPath();
+    ctx.ellipse(cx, gy + 2, 170, 16, 0, 0, PI2);
+    ctx.fill();
+    ctx.fillStyle = hexA(acc, 0.8);
+    ctx.fillRect(sx + 30, gy + 2, sw - 60, 2);
+    // Titan cũ trượt ra, Titan mới trượt vào từ hướng bấm
+    const AV = 1.04; // cùng một tỷ lệ cho mọi Titan (chuẩn H); chừa chỗ cho tiêu đề trên sân khấu, pháo vai Bastion và đầu trụ Bulwark
+    if (P.from != null && P.t < 1) {
+      ctx.save();
+      ctx.globalAlpha = 1 - e;
+      drawTitanAvatar(TITANS[P.from], cx - P.dir * 340 * e, gy, AV, false);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.globalAlpha = P.from == null ? 1 : e;
+    drawTitanAvatar(def, cx + (P.from == null ? 0 : P.dir * 340 * (1 - e)), gy, AV, true);
+    ctx.restore();
+    // tiêu đề góc trên bên phải sân khấu: thế hệ · tên Titan · vai trò (đổi cùng nhịp trượt)
+    ctx.save();
+    ctx.globalAlpha = P.from == null ? 1 : 0.25 + 0.75 * e;
+    // góc trên bên trái sân khấu: số liệu gọn (nhãn nhỏ trái, giá trị phải, vạch màu chủ đạo)
+    const facts = [['MÁU', `${def.hp} HP`], ['TỐC ĐỘ', `${def.speed}`], ['CHIỀU CAO', def.heightM ? `${def.heightM} m` : '—'], ['KHỐI LƯỢNG', def.massTonnes ? `${def.massTonnes.toLocaleString('vi-VN')} tấn` : '—']];
+    const fx0 = sx + 22;
+    const fwid = 168; // đủ chỗ cho "KHỐI LƯỢNG 2.480 tấn", không chạm nòng pháo Bastion
+    ctx.fillStyle = 'rgba(2,8,16,0.55)';
+    rr(fx0 - 8, sy + 14, fwid + 16, facts.length * 24 + 12, 6);
+    ctx.fill();
+    facts.forEach(([label, value], j) => {
+      const y = sy + 36 + j * 24;
+      ctx.fillStyle = acc;
+      ctx.fillRect(fx0, y - 10, 3, 12);
+      text(label, fx0 + 10, y, { size: 10, weight: 800, color: '#9fc1e0' });
+      text(value, fx0 + fwid, y, { size: 13, weight: 900, align: 'right', color: '#efe3cc' });
+    });
+    const rx = sx + sw - 24; // góc trên bên phải sân khấu
+    text(def.series ? `TITAN-FRAME · THẾ HỆ ${def.series.toUpperCase()}` : 'TITAN-FRAME', rx, sy + 30, { size: 12, weight: 800, align: 'right', color: '#9fc1e0' });
+    text(def.name.replace('EYERIM ', ''), rx, sy + 76, { size: 46, weight: 900, align: 'right', color: '#ffffff', glow: acc, blur: 18 });
+    text(def.role, rx, sy + 100, { size: 13, weight: 800, align: 'right', color: acc });
+    ctx.restore();
+    ctx.restore();
+    // mũi tên trái/phải
+    const ay = sy + sh / 2;
+    [[-1, sx + 36, '◀'], [1, sx + sw - 36, '▶']].forEach(([d, x, ch]) => {
+      ctx.fillStyle = 'rgba(4,12,22,0.85)';
+      ctx.beginPath();
+      ctx.arc(x, ay, 24, 0, PI2);
+      ctx.fill();
+      ctx.strokeStyle = acc;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      text(ch, x + d * 1, ay + 7, { size: 20, weight: 900, align: 'center', color: '#ffffff' });
+      zone(x - 28, ay - 28, 56, 56, () => pickerStep(d));
+    });
+
+    // ---- bảng thông tin bên phải ----
+    const px = 664;
+    const pw = W - 40 - px;
+    panel(px, sy, pw, sh, hexA(acc, 0.6));
+    ctx.save();
+    ctx.globalAlpha = P.from == null ? 1 : 0.25 + 0.75 * e;
+    const ix = px + 24;
+    const iw = pw - 48;
+    text('CHỈ SỐ', ix, sy + 32, { size: 11, weight: 800, color: acc });
+    // chỉ số 1–5
+    const STAT = [['armor', 'GIÁP'], ['speed', 'TỐC ĐỘ'], ['power', 'HỎA LỰC'], ['energy', 'NĂNG LƯỢNG']];
+    const colW = (iw - 24) / 2;
+    STAT.forEach(([k, label], j) => {
+      const x = ix + (j % 2) * (colW + 24);
+      const y = sy + 58 + Math.floor(j / 2) * 34;
+      text(label, x, y, { size: 11, weight: 800, color: '#9fc1e0' });
+      const step = colW / 5;
+      for (let n = 0; n < 5; n++) {
+        ctx.fillStyle = n < def.stats[k] ? acc : 'rgba(255,255,255,0.1)';
+        rr(x + n * step, y + 6, step - 5, 8, 3);
+        ctx.fill();
+      }
+    });
+    // cốt truyện
+    text('CỐT TRUYỆN', ix, sy + 150, { size: 11, weight: 800, color: acc });
+    const loreEnd = wrapText(def.lore || '', ix, sy + 176, iw, 22, { size: 14, weight: 500, color: '#cfe0f0' });
+    // vũ khí + chiêu đặc biệt (neo đáy bảng)
+    const wy = Math.max(sy + sh - 118, loreEnd + 30);
+    text('VŨ KHÍ', ix, wy, { size: 11, weight: 800, color: acc });
+    [...def.weapons, ['★', `Link 100%: ${def.ultName}`]].forEach(([key, w], j) => {
+      const y = wy + 22 + j * 21;
+      ctx.fillStyle = hexA(acc, 0.18);
+      rr(ix, y - 14, 22, 19, 4);
+      ctx.fill();
+      text(key, ix + 11, y, { size: 12, weight: 900, align: 'center', color: '#ffd36b' });
+      text(w, ix + 32, y, { size: 13, weight: 600, color: '#e8f1ff' });
+    });
+    ctx.restore();
+
+    // ---- dải menu nhỏ: các Titan khác ----
+    const n = TITANS.length;
+    const tw = 150;
+    const tg = 10;
+    const tx0 = W / 2 - (n * tw + (n - 1) * tg) / 2;
+    const ty = sy + sh + 14;
+    TITANS.forEach((d, i) => {
+      const x = tx0 + i * (tw + tg);
+      const on = i === game.pick;
+      ctx.fillStyle = on ? hexA(d.profile_color, 0.22) : 'rgba(6,14,26,0.8)';
+      rr(x, ty, tw, 40, 6);
+      ctx.fill();
+      ctx.strokeStyle = on ? d.profile_color : 'rgba(120,190,255,0.22)';
+      ctx.lineWidth = on ? 2 : 1;
+      rr(x, ty, tw, 40, 6);
+      ctx.stroke();
+      ctx.fillStyle = d.profile_color;
+      ctx.beginPath();
+      ctx.arc(x + 18, ty + 20, 6, 0, PI2);
+      ctx.fill();
+      text(String(i + 1), x + 18, ty + 24, { size: 9, weight: 900, align: 'center', color: '#03101a' });
+      text(d.name.replace('EYERIM ', ''), x + 32, ty + 25, { size: 14, weight: 900, color: on ? '#ffffff' : '#9fb3c8' });
+      zone(x, ty, tw, 40, () => pickerGo(i));
+    });
+    // quay lại / xác nhận
+    zone(40, ty, 150, 40, () => P.opts.onBack());
+    text('◀ QUAY LẠI', 52, ty + 25, { size: 14, weight: 900, color: '#9fc1e0' });
+    const cw2 = 170;
+    ctx.fillStyle = acc;
+    rr(W - 40 - cw2, ty, cw2, 40, 6);
+    ctx.fill();
+    text(`${P.opts.confirmLabel || 'CHỌN'} ▶`, W - 40 - cw2 / 2, ty + 26, { size: 15, weight: 900, align: 'center', color: '#03101a' });
+    zone(W - 40 - cw2, ty, cw2, 40, () => P.opts.onConfirm(game.pick));
+    text('◀ ▶ / A D đổi Titan  ·  1–' + n + ' chọn nhanh  ·  ENTER ' + (P.opts.confirmLabel || 'chọn').toLowerCase() + '  ·  ESC quay lại', W / 2, H - 12, { size: 12, align: 'center', weight: 600, color: '#7f9bb8' });
+  }
+
 
   function drawClear() {
     dim(0.55);
@@ -8871,7 +9003,7 @@
   function drawWorkshopBay(x0, y0, w, h) {
     const t = game.t;
     const def = game.titan ? game.titan.def : curDef();
-    const acc = def.pal.front.accent;
+    const acc = def.profile_color;
     ctx.save();
     rr(x0, y0, w, h, 8);
     ctx.clip();
@@ -9229,7 +9361,7 @@
         drawTitle();
         break;
       case 'select':
-        drawSelect();
+        drawTitanPicker();
         break;
       case 'duel':
         drawDuel();

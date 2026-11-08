@@ -169,10 +169,10 @@ for (const time of [0, .2, .4, .9, 1.2, 2.05]) {
 }
 assert.equal(staggerPose(0).flash, false);
 assert.equal(staggerPose(.2).flash, true);
-assert.equal(specs.vanguard.heightM, 80);
-assert.equal(specs.tempest.heightM, 80);
-assert.equal(specs.vanguard.massTonnes, 2400);
-assert.equal(specs.tempest.massTonnes, 1850);
+assert.equal(specs.vanguard.heightM, 79);
+assert.equal(specs.tempest.heightM, 76);
+assert.equal(specs.vanguard.massTonnes, 2050);
+assert.equal(specs.tempest.massTonnes, 1780);
 for (const [id, spec] of Object.entries(specs)) {
   const measuredHeight = ((spec.eyeTop ?? spec.crown) + spec.sole) * spec.scale;
   assert(Math.abs(headHeight(specs.vanguard) - measuredHeight) < 1e-9,
@@ -273,13 +273,13 @@ for (const time of [0, .2, .5, .86, 1.05, 1.24, 1.7, 1.92, 2.3, 3.3]) {
   }
 }
 for (const id of ['bastion', 'bulwark']) {
-  assert.equal(specs[id].series, 'Eye1', `${id}: thuộc dòng Eye1`);
-  assert(specs[id].note.includes('Dòng Eye1'), 'thông số hiển thị dòng Eye1');
+  assert.equal(specs[id].series, 'Eye-1', `${id}: thuộc thế hệ Eye-1`);
+  assert(specs[id].note.includes('Thế hệ Eye-1'), 'thông số hiển thị thế hệ Eye-1');
   assert.equal(sandbox.TitanGallery.names[id].jab, 'F · Đấm phải');
   assert.equal(sandbox.TitanGallery.names[id].hook, 'J · Đấm trái');
 }
 for (const [clip, side, peak] of [['jab', 'right', .07], ['hook', 'left', .1]]) {
-  assert.equal(bulwark.poseAt(clip, peak).punchArm, side, `${clip}: đúng tay của dòng Eye1`);
+  assert.equal(bulwark.poseAt(clip, peak).punchArm, side, `${clip}: đúng tay của thế hệ Eye-1`);
   assert.equal(bulwark.poseAt(clip, peak).punch, 1, 'giữ nguyên nhịp F/J');
 }
 assert.equal(bulwark.poseAt('blade', .72).punchArm, null, 'không áp dụng đổi tay F/J sang K');
