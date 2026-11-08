@@ -31,6 +31,8 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/game.js'), 'utf8'), sandbox);
+// Vanguard/Tempest: bộ vẽ của game (chưa có bản nháp riêng ở xưởng)
+for (const f of ['common/frame.js', 'vanguard.js', 'tempest.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/titans', f), 'utf8'), sandbox);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../titans/bastion.js'), 'utf8'), sandbox);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../titans/bulwark.js'), 'utf8'), sandbox);
 assert.equal(frames, 0, 'trang mẫu không chạy vòng lặp chiến đấu');

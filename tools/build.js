@@ -27,7 +27,7 @@ function build(outputRoot = ROOT, version = process.env.GAME_VERSION || 'bản d
   const js = fs.readFileSync(path.join(ROOT, 'src/game.js'), 'utf8');
   // Bộ vẽ Titan của GAME (src/titans/*.js, theo đúng thứ tự thẻ <script> trong index.html): bản offline nhúng ngay sau game.js.
   // titans/ là xưởng thiết kế (bản nháp), không bao giờ được nhúng vào game.
-  const drawerTags = [...source.matchAll(/\n {2}<script src="(src\/titans\/[\w-]+\.js)(?:\?v=\d+)?"><\/script>/g)];
+  const drawerTags = [...source.matchAll(/\n {2}<script src="(src\/titans\/[\w/-]+\.js)(?:\?v=\d+)?"><\/script>/g)];
   const drawersJs = drawerTags.map(([, file]) => fs.readFileSync(path.join(ROOT, file), 'utf8'));
   const track = fs.readFileSync(path.join(ROOT, 'music/theme.mp3'));
   if (!track.length) throw new Error('music/theme.mp3 đang rỗng.');

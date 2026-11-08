@@ -11,8 +11,9 @@ const { spamBot, makeSkilledBot } = require('./bots');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
 const SCRIPT = new vm.Script(SRC, { filename: 'game.js' });
-const BASTION = new vm.Script(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bastion.js'), 'utf8'), { filename: 'bastion.js' });
-const BULWARK = new vm.Script(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bulwark.js'), 'utf8'), { filename: 'bulwark.js' });
+// Bộ vẽ Titan của game (src/titans/…, không phải bản nháp titans/): đúng danh sách và thứ tự thẻ <script> trong index.html.
+const GAME_DRAWERS = [...fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').matchAll(/<script src="(src\/titans\/[\w/-]+\.js)/g)].map((m) => m[1]);
+const DRAWERS = GAME_DRAWERS.map((file) => new vm.Script(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), { filename: file }));
 
 function mulberry32(a) {
   return function () {
@@ -61,8 +62,7 @@ function createGame(seed) {
   };
   sb.window = sb;
   SCRIPT.runInNewContext(sb);
-  BASTION.runInContext(sb);
-  BULWARK.runInContext(sb);
+  for (const d of DRAWERS) d.runInContext(sb);
   const fire = (type, code) => (listeners[type] || []).forEach((fn) => fn({ code, preventDefault: noop }));
   const botRng = mulberry32(seed ^ 0x9e3779b9);
   return {

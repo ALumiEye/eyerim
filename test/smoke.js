@@ -63,9 +63,9 @@ sandbox.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
 vm.runInNewContext(src, sandbox, { filename: 'game.js' });
-// Bộ vẽ Titan của game (src/titans/, không phải bản nháp titans/) nạp sau game.js như index.html.
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bastion.js'), 'utf8'), sandbox, { filename: 'bastion.js' });
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bulwark.js'), 'utf8'), sandbox, { filename: 'bulwark.js' });
+// Bộ vẽ Titan của game (src/titans/…, không phải bản nháp titans/): đúng danh sách và thứ tự thẻ <script> trong index.html.
+const GAME_DRAWERS = [...fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').matchAll(/<script src="(src\/titans\/[\w/-]+\.js)/g)].map((m) => m[1]);
+for (const file of GAME_DRAWERS) vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), sandbox, { filename: file });
 const game = testHook.game;
 
 const fire = (type, code) => (listeners[type] || []).forEach((fn) => fn({ code, preventDefault: noop }));

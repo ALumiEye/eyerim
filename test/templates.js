@@ -21,6 +21,8 @@ const ctx = new Proxy({}, {
 const canvas = { width: 1200, height: 780, style: {}, getContext: () => ctx };
 const root = path.join(__dirname, '..');
 const gameSource = fs.readFileSync(path.join(root, 'src/game.js'), 'utf8');
+// Vanguard/Tempest vẽ bằng src/game.js + bộ vẽ game src/titans/common/frame.js, vanguard.js, tempest.js.
+const vtSource = [gameSource, ...['common/frame.js', 'vanguard.js', 'tempest.js'].map((f) => fs.readFileSync(path.join(root, 'src/titans', f), 'utf8'))].join('\n');
 for (const dir of ['titans', 'src/titans']) checkDir(dir);
 
 function checkDir(dir) {
@@ -43,7 +45,7 @@ for (const key of ['idlePreview', 'walkPreview', 'celebrationPreview', 'staggerP
 // Vanguard/Tempest trong game cũng chạy qua đúng các template này (không chép công thức ra chỗ khác).
 for (const use of ['walkTemplate(T.walkT)', 'idleTemplate(game.t).bob', 'idleTemplate(game.t).breathe[side]',
   'celebrationTemplate(T.celebrate, game.t)']) {
-  assert(gameSource.includes(use), `Vanguard/Tempest phải dùng template: ${use}`);
+  assert(vtSource.includes(use), `Vanguard/Tempest phải dùng template: ${use}`);
 }
 
 const drawers = Object.keys(sandbox).filter(k => /^EyeRim[A-Z]/.test(k) && k !== 'EyeRimCore');

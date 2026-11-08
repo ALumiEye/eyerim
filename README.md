@@ -148,7 +148,7 @@ Phát hành bản mới: viết ghi chú ở `docs/releases/vX.Y.Z.md` (không c
 
 Mở trực tiếp `titans/vanguard.html`, `tempest.html`, `bastion.html` hoặc `bulwark.html` trong trình duyệt. Mỗi trang có hai hướng nhìn ngang và 12 động tác/chiêu thức, nút phát/dừng, đổi hướng, tốc độ, phóng to và thanh tua thời điểm. Không cần server hay cài thư viện.
 
-`titans/` là **xưởng thiết kế, không ảnh hưởng game**. Bastion và Bulwark có bản nháp `titans/<id>.js` để thử thoải mái; game chỉ dùng bản trong `src/titans/<id>.js`. Duyệt xong thì đưa vào game bằng `npm run promote <id>` (chép nháp sang game, chạy test, hỏng thì tự hoàn tác); `npm run promote` không tham số cho biết bản nào đang khác game. Vanguard/Tempest vẽ trong `src/game.js`, trang xem của hai Titan này đọc thẳng từ đó. Hiệu ứng đạn/tên lửa trên trang mẫu là minh họa chuyển động, không mô phỏng sát thương hay AI. Gallery chỉ dùng tên Vanguard/Tempest và tài nguyên trong repo, không hiển thị tên hay ảnh tham chiếu bên ngoài.
+`titans/` là **xưởng thiết kế, không ảnh hưởng game**. Bastion và Bulwark có bản nháp `titans/<id>.js` để thử thoải mái; game chỉ dùng bản trong `src/titans/<id>.js`. Duyệt xong thì đưa vào game bằng `npm run promote <id>` (chép nháp sang game, chạy test, hỏng thì tự hoàn tác); `npm run promote` không tham số cho biết bản nào đang khác game. Vanguard/Tempest chưa có bản nháp: trang xem của hai Titan này đọc thẳng bộ vẽ game `src/titans/vanguard.js`, `tempest.js`. Hiệu ứng đạn/tên lửa trên trang mẫu là minh họa chuyển động, không mô phỏng sát thương hay AI. Gallery chỉ dùng tên Vanguard/Tempest và tài nguyên trong repo, không hiển thị tên hay ảnh tham chiếu bên ngoài.
 
 ## Cấu trúc
 
@@ -156,7 +156,7 @@ Mở trực tiếp `titans/vanguard.html`, `tempest.html`, `bastion.html` hoặc
 index.html      trang chứa canvas
 style.css       căn giữa và co giãn canvas
 src/game.js     toàn bộ game: logic, AI, đồ họa vẽ bằng code, âm thanh WebAudio
-src/titans/     bộ vẽ Bastion/Bulwark mà GAME dùng (chỉ cập nhật bằng npm run promote)
+src/titans/     bộ vẽ mỗi Titan mà GAME dùng (vanguard, tempest, bastion, bulwark); common/ là code dùng chung Vanguard/Tempest
 titans/         xưởng thiết kế: bản nháp bộ vẽ + mỗi Titan một HTML xem mẫu (gallery.css, gallery.js); không ảnh hưởng game
 test/gallery.js kiểm tra mọi động tác/hướng của các trang mẫu
 test/smoke.js   bot tự chơi hết chiến dịch trong Node với canvas giả
