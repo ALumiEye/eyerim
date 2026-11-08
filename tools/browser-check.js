@@ -259,7 +259,7 @@ const checkShots = path.join(os.tmpdir(), 'eyerim-check-shots');
       if (titan === 'tempest') {
         await page.locator('#clips button[data-clip="cannon"]').click();
         for (const direction of [1, -1]) {
-          for (const time of [.2, .8, 1.9]) {
+          for (const time of [.2, .8, 1.5]) {
             await page.locator('#timeline').evaluate((el, time) => {
               el.value = String(time); el.dispatchEvent(new Event('input', { bubbles: true }));
             }, time);
