@@ -17,7 +17,7 @@ try {
     source.replace('<span id="game-version">BẢN NGUỒN</span>', '<span id="game-version">v9.9.9-test</span>'),
     'Pages chỉ khác nguồn ở ô phiên bản');
   for (const file of ['style.css', 'src/game.js', 'music/theme.mp3',
-    'titans/vanguard.html', 'titans/tempest.html', 'titans/bastion.html', 'titans/bastion.js', 'titans/gallery.css', 'titans/gallery.js',
+    'titans/vanguard.html', 'titans/tempest.html', 'titans/bastion.html', 'titans/bastion.js', 'titans/bulwark.html', 'titans/bulwark.js', 'src/titans/bastion.js', 'src/titans/bulwark.js', 'titans/gallery.css', 'titans/gallery.js',
     'assets/alumieye.png', 'assets/lumi.png', 'assets/favicon.png']) {
     assert.deepEqual(fs.readFileSync(path.join(pages, file)), fs.readFileSync(path.join(root, file)), file);
   }
@@ -38,6 +38,12 @@ try {
   assert(!/<link\b[^>]*\brel="stylesheet"/i.test(html), 'không tải CSS bên ngoài');
   assert(html.includes(fs.readFileSync(path.join(root, 'style.css'), 'utf8')));
   assert(html.includes('<span id="game-version">v9.9.9-test</span>'), 'HTML độc lập hiển thị phiên bản');
+  // Bản offline nhúng bộ vẽ GAME (src/titans/), không bao giờ nhúng bản nháp xưởng (titans/).
+  for (const drawer of ['bastion', 'bulwark']) {
+    assert(html.includes(fs.readFileSync(path.join(root, 'src', 'titans', `${drawer}.js`), 'utf8')), `HTML độc lập nhúng bộ vẽ game src/titans/${drawer}.js`);
+  }
+  const gameHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert(!/<script src="titans\//.test(gameHtml), 'game (index.html) không nạp file nào trong xưởng titans/');
   assert(!html.includes('BẢN NGUỒN'));
   for (const name of ['alumieye.png', 'lumi.png', 'favicon.png']) {
     const data = fs.readFileSync(path.join(root, 'assets', name));

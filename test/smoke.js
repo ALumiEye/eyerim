@@ -63,8 +63,9 @@ sandbox.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
 vm.runInNewContext(src, sandbox, { filename: 'game.js' });
-// Bộ vẽ Bastion (dùng chung với trang xưởng) nạp sau game.js như index.html.
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'titans', 'bastion.js'), 'utf8'), sandbox, { filename: 'bastion.js' });
+// Bộ vẽ Titan của game (src/titans/, không phải bản nháp titans/) nạp sau game.js như index.html.
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bastion.js'), 'utf8'), sandbox, { filename: 'bastion.js' });
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bulwark.js'), 'utf8'), sandbox, { filename: 'bulwark.js' });
 const game = testHook.game;
 
 const fire = (type, code) => (listeners[type] || []).forEach((fn) => fn({ code, preventDefault: noop }));
@@ -120,7 +121,7 @@ function checkSpecialInterrupt(label) {
     const T = game.titan;
     const K = game.kaiju;
     ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
-    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.dive && !T.slide && !T.beaming) break;
     step(1);
   }
   const T = game.titan;
@@ -134,7 +135,7 @@ function checkSpecialInterrupt(label) {
   assert(T.arms.R && T.arms.R.name === 'jet' && !T.arms.R.fired, `${label}: bấm I một lần là bắt đầu tụ chiêu`);
   testHook.hitTitan(5, 0, 1);
   for (let i = 0; i < 120; i++) { K.cooldown = 5; K.x = kx; step(1); }
-  assert(game.kaiju.hp === hp0 && !T.leap && !T.slide && !T.arms.R, `${label}: trúng đòn khi đang tụ → mất chiêu`);
+  assert(game.kaiju.hp === hp0 && !T.leap && !T.dive && !T.slide && !T.arms.R, `${label}: trúng đòn khi đang tụ → mất chiêu`);
   assert(T.energy < 100, `${label}: mất chiêu thì không hoàn năng lượng`);
 }
 
@@ -145,7 +146,7 @@ function checkUlt(label, kind) {
     const T = game.titan;
     const K = game.kaiju;
     ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
-    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.dive && !T.slide && !T.beaming) break;
     step(1);
   }
   const T = game.titan;
@@ -157,9 +158,11 @@ function checkUlt(label, kind) {
   assert(T.beaming && T.def.ult === kind, `${label}: Link 100% + đồng bộ → tung chiêu đặc biệt (${T.def.ultName})`);
   if (kind === 'orbital') assert(game.strikes.length === 6, `${label}: gọi 6 tên lửa vệ tinh`);
   if (kind === 'salvo') assert(!!game.salvo, `${label}: hai pháo vai bắt đầu loạt pháo kép`);
+  if (kind === 'overload') assert(!!game.overload, `${label}: hai nắm đấm bắt đầu quá tải thủy lực`);
   f = 0;
   while (T.beaming && f++ < 60 * 5) { K.cooldown = Math.max(K.cooldown, 1); step(1); }
   assert(!T.beaming && game.kaiju.hp < hp0, `${label}: chiêu đặc biệt gây ${Math.round(hp0 - game.kaiju.hp)} sát thương rồi kết thúc`);
+  if (kind === 'overload') assert(!game.overload, `${label}: quá tải thủy lực kết thúc, trả Link về ${T.link}%`);
   if (kind === 'salvo') assert(game.trails.length === 14 && game.trails.every((tr) => tr.pts.length > 5), `${label}: 14 tên lửa, mỗi quả để lại vệt khói (${game.trails.length} vệt)`);
 }
 
@@ -170,7 +173,7 @@ function checkLinkHold(label) {
     const T = game.titan;
     const K = game.kaiju;
     ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
-    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.dive && !T.slide && !T.beaming) break;
     step(1);
   }
   const T = game.titan;
@@ -213,7 +216,7 @@ function checkSpecial(label, gapFromRange = -20) {
     const T = game.titan;
     const K = game.kaiju;
     ['KeyA', 'KeyD', 'KeyS', 'KeyL'].forEach(release);
-    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.slide && !T.beaming) break;
+    if (K && !K.dying && K.state !== 'emerge' && !T.arms.R && !T.arms.L && !T.charge && !T.leap && !T.dive && !T.slide && !T.beaming) break;
     step(1);
   }
   const T = game.titan;
@@ -228,7 +231,7 @@ function checkSpecial(label, gapFromRange = -20) {
   const x0 = T.x;
   const kx = K.x;
   // giữ quái đứng yên & không ra đòn để đo đúng tầm lúc chiêu được tung ra
-  do { K.cooldown = Math.max(K.cooldown, 1); if (!game.kaiju.dying && game.kaiju.hp === hp0) K.x = kx; step(1); } while ((T.arms.R || T.leap || T.slide) && f++ < 300);
+  do { K.cooldown = Math.max(K.cooldown, 1); if (!game.kaiju.dying && game.kaiju.hp === hp0) K.x = kx; step(1); } while ((T.arms.R || T.leap || T.dive || T.slide) && f++ < 300);
   step(10);
   if (gapFromRange > 0) {
     assert(game.kaiju.hp === hp0, `${label}: ngoài tầm ${Math.round(RANGE)}px (+${gapFromRange}px) thì chiêu I hụt`);
@@ -372,7 +375,7 @@ assert(game.pick === 2, 'D chuyển sang Titan thứ ba');
 press('Enter'); step(1); release('Enter');
 skipDeploy('bastion');
 assert(game.state === 'fight' && game.titan.def.id === 'bastion' && game.titan.maxHp === 165, 'chọn BASTION, HP 165');
-assert(!!sandbox.EyeRimBastion, 'bộ vẽ Bastion (titans/bastion.js) đã nạp vào game');
+assert(!!sandbox.EyeRimBastion, 'bộ vẽ Bastion (src/titans/bastion.js) đã nạp vào game');
 checkSpecial('BASTION');
 checkSpecialInterrupt('BASTION');
 checkUlt('BASTION', 'salvo');
@@ -398,6 +401,79 @@ checkUlt('BASTION', 'salvo');
   }
   ['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK', 'KeyI', 'KeyW'].forEach(release);
   assert(game.state === 'clear', `BASTION hạ gục quái đợt 1 (${(f / 60).toFixed(1)}s)`);
+  step(200); // diễn ăn mừng
+}
+// Chọn BULWARK (Titan thứ tư, dòng Eye1), chơi đợt 1: móc thủy lực, cầu lửa hai mắt, đấm điện lao chéo, quá tải thủy lực.
+['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK', 'KeyI', 'KeyW'].forEach(release);
+testHook.toTitle(); step(2);
+press('Enter'); step(1); release('Enter');
+step(20);
+for (let i = 0; i < 4 && game.pick !== 3; i++) { press('KeyD'); step(1); release('KeyD'); }
+assert(game.pick === 3, 'D chuyển sang Titan thứ tư');
+press('Enter'); step(1); release('Enter');
+skipDeploy('bulwark');
+assert(game.state === 'fight' && game.titan.def.id === 'bulwark' && game.titan.def.series === 'Eye1', 'chọn BULWARK (dòng Eye1)');
+assert(!!sandbox.EyeRimBulwark && typeof sandbox.EyeRimBulwark.drawInGame === 'function', 'bộ vẽ Bulwark (src/titans/bulwark.js) đã nạp vào game');
+checkSpecial('BULWARK');
+{
+  // I: đường lao là đoạn chéo thẳng (độ cao tỷ lệ với quãng ngang), rồi rơi thẳng xuống, không lướt ngược
+  const TB = game.titan;
+  const KB = game.kaiju;
+  let f = 0;
+  while ((TB.arms.R || TB.dive) && f++ < 300) step(1);
+  TB.energy = 100;
+  TB.x = KB.x - KB.half - 420;
+  const kx = KB.x;
+  press('KeyI'); release('KeyI');
+  const pts = [];
+  f = 0;
+  while (!TB.dive && f++ < 120) { KB.cooldown = 5; KB.x = kx; step(1); }
+  const x0 = TB.dive.fromX;
+  let fallX = null;
+  let drift = 0;
+  while (TB.dive && f++ < 400) {
+    KB.cooldown = 5; KB.x = kx; step(1);
+    if (TB.dive && TB.dive.t < 0.34) pts.push([TB.x - x0, TB.airY]);
+    if (TB.dive && TB.dive.t > 0.5 && fallX == null) fallX = TB.x;
+    if (TB.dive && fallX != null) drift = Math.max(drift, Math.abs(TB.x - fallX));
+  }
+  assert(fallX != null && drift === 0, 'BULWARK: hết đà thì rơi thẳng xuống, không trôi ngang hay lướt ngược');
+  const ratios = pts.filter(([dx]) => Math.abs(dx) > 20).map(([dx, y]) => y / Math.abs(dx));
+  assert(ratios.length > 3 && Math.max(...ratios) - Math.min(...ratios) < 1e-6, `BULWARK: lao theo đoạn chéo thẳng (${ratios.length} mẫu, độ dốc ${ratios[0].toFixed(3)})`);
+  assert(TB.airY === 0 && !TB.dive && !TB.arms.R, 'BULWARK: đáp đất xong mới trả tay');
+}
+checkSpecialInterrupt('BULWARK');
+checkUlt('BULWARK', 'overload');
+{
+  const TB = game.titan;
+  const KB = game.kaiju;
+  const kx = KB.x;
+  // K: móc thủy lực trúng ở đỉnh cú móc
+  let f = 0;
+  while ((TB.arms.R || TB.arms.L) && f++ < 300) step(1);
+  TB.x = KB.x - KB.half - 120;
+  let hp0 = KB.hp;
+  press('KeyK'); release('KeyK');
+  for (let i = 0; i < 90; i++) { KB.cooldown = 5; KB.x = kx; step(1); }
+  assert(KB.hp < hp0, `BULWARK: K móc thủy lực trúng (-${Math.round(hp0 - KB.hp)} HP)`);
+  // L: giữ 1,6 s rồi thả → hai mắt phun đúng hai cầu lửa
+  TB.energy = 100;
+  TB.x = KB.x - KB.half - 400;
+  let sawBalls = 0;
+  hp0 = KB.hp;
+  press('KeyL');
+  for (let i = 0; i < 96; i++) { KB.cooldown = 5; KB.x = kx; step(1); }
+  release('KeyL');
+  for (let i = 0; i < 150; i++) { KB.cooldown = 5; KB.x = kx; step(1); sawBalls = Math.max(sawBalls, game.projectiles.filter((p) => p.fireball).length); }
+  assert(sawBalls === 2 && KB.hp < hp0, `BULWARK: phun lửa hai mắt bắn ${sawBalls} cầu lửa (-${Math.round(hp0 - KB.hp)} HP)`);
+  f = 0;
+  const bulwarkBot = makeSkilledBot();
+  while (game.state === 'fight' && f < 60 * 240) {
+    bulwarkBot(game, botIo, f++);
+    step(1);
+  }
+  ['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK', 'KeyI', 'KeyW'].forEach(release);
+  assert(game.state === 'clear', `BULWARK hạ gục quái đợt 1 (${(f / 60).toFixed(1)}s)`);
   step(200); // diễn ăn mừng
 }
 // ===== Menu, huấn luyện, Đua thời gian, Đấu tự do =====
@@ -460,16 +536,18 @@ assert(game.menu === 3, 'phím 4: HUẤN LUYỆN PHI CÔNG');
 tapKey('Enter');
 assert(game.state === 'training' && game.train.idx === 0 && !game.kaiju, 'vào màn huấn luyện (không có quái)');
 step(30);
-for (let i = 0; i < 10; i++) { tapKey('KeyS'); step(20); }
-assert(game.train.idx === 0, 'S đi hết 10 chiêu rồi vòng lại');
+const NTRAIN = testHook.trainMoves(testHook.TITANS[0]).length;
+assert(NTRAIN === 11 && testHook.trainMoves(testHook.TITANS[0])[0].clip === 'idle', 'huấn luyện có mục ĐỨNG IM ở đầu (11 mục)');
+for (let i = 0; i < NTRAIN; i++) { tapKey('KeyS'); step(20); }
+assert(game.train.idx === 0, `S đi hết ${NTRAIN} mục rồi vòng lại`);
 tapKey('Digit6');
 assert(game.train.idx === 5, 'phím số chọn nhanh chiêu');
 tapKey('KeyD'); step(30);
 assert(game.train.titan === 1, 'D đổi sang TEMPEST');
 for (const def of testHook.TITANS) {
   const moves = testHook.trainMoves(def);
-  assert(moves.length === 10 && moves.every((m) => m.name && m.key && m.desc && m.stats.length > 0),
-    `${def.id}: đủ 10 chiêu, mỗi chiêu có phím, mô tả, chỉ số`);
+  assert(moves.length === NTRAIN && moves.every((m) => m.name && m.key && m.desc && m.stats.length > 0),
+    `${def.id}: đủ ${NTRAIN} mục, mỗi mục có phím, mô tả, chỉ số`);
   const blade = moves.find((m) => m.clip === 'blade');
   const want = (def.moves.blade || { dmg: 24 }).dmg;
   assert(blade.dmg === want && blade.stats[0][1] === String(want), `${def.id}: chỉ số K lấy từ số liệu chiến đấu (${want})`);
@@ -477,12 +555,12 @@ for (const def of testHook.TITANS) {
 {
   // diễn từng chiêu của mọi Titan trên sân khấu (bắt lỗi vẽ)
   for (let ti = 0; ti < testHook.TITANS.length; ti++) {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < NTRAIN; i++) {
       game.train.titan = ti; game.train.idx = i; game.train.t = 0;
       step(150);
     }
   }
-  console.log(`ok  - diễn đủ 10 chiêu × ${testHook.TITANS.length} Titan trên sân khấu huấn luyện`);
+  console.log(`ok  - diễn đủ ${NTRAIN} mục × ${testHook.TITANS.length} Titan trên sân khấu huấn luyện`);
 }
 tapKey('Space');
 const tFrozen = game.train.t;

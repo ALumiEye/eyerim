@@ -25,8 +25,10 @@ function build(outputRoot = ROOT, version = process.env.GAME_VERSION || 'bản d
   const source = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
   const js = fs.readFileSync(path.join(ROOT, 'src/game.js'), 'utf8');
-  // Bộ vẽ Bastion dùng chung giữa trang xưởng và trận đấu: bản offline nhúng ngay sau game.js.
-  const bastionJs = fs.readFileSync(path.join(ROOT, 'titans/bastion.js'), 'utf8');
+  // Bộ vẽ Titan của GAME (src/titans/*.js, theo đúng thứ tự thẻ <script> trong index.html): bản offline nhúng ngay sau game.js.
+  // titans/ là xưởng thiết kế (bản nháp), không bao giờ được nhúng vào game.
+  const drawerTags = [...source.matchAll(/\n {2}<script src="(src\/titans\/[\w-]+\.js)(?:\?v=\d+)?"><\/script>/g)];
+  const drawersJs = drawerTags.map(([, file]) => fs.readFileSync(path.join(ROOT, file), 'utf8'));
   const track = fs.readFileSync(path.join(ROOT, 'music/theme.mp3'));
   if (!track.length) throw new Error('music/theme.mp3 đang rỗng.');
 
@@ -38,11 +40,11 @@ function build(outputRoot = ROOT, version = process.env.GAME_VERSION || 'bản d
     embeddedHtml = replaceOnce(embeddedHtml, `"assets/${name}"`, `"data:image/png;base64,${data.toString('base64')}"`);
   }
   const embeddedJs = replaceOnce(js, "'music/theme.mp3'", JSON.stringify(`data:audio/mpeg;base64,${track.toString('base64')}`));
-  const inlineJs = `${embeddedJs}\n;\n${bastionJs}`;
+  const inlineJs = [embeddedJs, ...drawersJs].join('\n;\n');
+  let withoutDrawers = replaceOnce(embeddedHtml, /\n {2}<link rel="stylesheet" href="style\.css(?:\?v=\d+)?">/, '');
+  for (const [tag] of drawerTags) withoutDrawers = replaceOnce(withoutDrawers, tag, '');
   const standalone = replaceOnce(
-    replaceOnce(
-      replaceOnce(embeddedHtml, /\n {2}<link rel="stylesheet" href="style\.css(?:\?v=\d+)?">/, ''),
-      /\n {2}<script src="titans\/bastion\.js(?:\?v=\d+)?"><\/script>/, ''),
+    withoutDrawers,
     /<script src="src\/game\.js(?:\?v=\d+)?"><\/script>/,
     `<script>\n${inlineJs.replace(/<\/script/gi, '<\\/script')}\n  </script>`
   );
@@ -55,6 +57,7 @@ function build(outputRoot = ROOT, version = process.env.GAME_VERSION || 'bản d
   fs.writeFileSync(path.join(pages, 'index.html'), html);
   fs.writeFileSync(path.join(pages, 'style.css'), css);
   fs.writeFileSync(path.join(pages, 'src/game.js'), js);
+  fs.cpSync(path.join(ROOT, 'src/titans'), path.join(pages, 'src/titans'), { recursive: true });
   fs.writeFileSync(path.join(pages, 'music/theme.mp3'), track);
   fs.cpSync(path.join(ROOT, 'titans'), path.join(pages, 'titans'), { recursive: true });
   fs.writeFileSync(path.join(pages, '.nojekyll'), '');

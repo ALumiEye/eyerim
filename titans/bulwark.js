@@ -1,10 +1,12 @@
-/* Bulwark — mẫu Titan giáp nặng theo bốn ảnh Cherno của người dùng.
- * Chỉ ở xưởng: không thay roster hoặc thông số chiến đấu.
+/* Bulwark — bộ vẽ Titan. Bản NHÁP thiết kế: titans/bulwark.js (trang xưởng titans/bulwark.html);
+ * bản GAME: src/titans/bulwark.js, chỉ cập nhật bằng `npm run promote bulwark` (chép nháp → game sau khi test qua).
+ * Tạo hình theo bốn ảnh Cherno của người dùng; Titan thứ tư trong roster.
  * Ăn mừng/trúng đòn lấy template chung, không tạo biến thể riêng.
  */
 (() => {
   'use strict';
-  const base = window.TitanGallery;
+  // Trang xưởng: TitanGallery; trong game: EyeRimCore (src/game.js nạp trước file này).
+  const base = window.TitanGallery || window.EyeRimCore;
   if (!base?.celebrationPreview) return;
   const crown = 600, sole = 8;
   // Riêng Bulwark: mốc chuẩn là cạnh trên hai mắt tròn, không phải đỉnh trụ.
@@ -162,48 +164,52 @@
           poly([[x - 14, y], [x + 12, y - 3], [x + 4, y + 4]], i % 2 ? '#ffbd39' : '#e46325', 0);
         }
       }
-      if (fire.curl > 0 && stream.radius > 0) {
-        const cx = stream.distance + fire.flight * 430;
-        const radius = stream.radius;
-        // Les rubans de la pointe s'enroulent progressivement, puis la boule se détache.
-        for (let layer = 0; layer < 3; layer++) {
-          const points = Array.from({ length: 65 }, (_, i) => {
-            const u = i / 64, angle = u * Math.PI * 3.5 - phase * 13 + id * 2;
-            const r = radius * (1.35 - u * .95);
-            return [cx + Math.cos(angle) * r, Math.sin(angle) * r];
-          });
-          c.lineCap = 'round'; c.lineJoin = 'round';
-          line(points, colors[layer + 1], (13 - layer * 4) * fire.curl);
-        }
-        c.save(); c.translate(cx, 0);
-        // Une silhouette de flammes tourne autour du noyau chaud, pas un disque lisse.
-        const shell = Array.from({ length: 46 }, (_, i) => {
-          const angle = i / 46 * Math.PI * 2;
-          const r = radius * (1 + .12 * Math.sin(i * 2.3 + phase * 28) + .08 * Math.sin(i * 4.7 - phase * 19));
-          return [Math.cos(angle) * r, Math.sin(angle) * r];
-        });
-        poly(shell, '#f57421', 0);
-        ellipse(-3, -2, radius * .7, radius * .65, '#ffc23b', null);
-        ellipse(1, -3, radius * .36, radius * .39, '#fff2b5', null);
-        for (let i = 0; i < 7; i++) {
-          const angle = i * Math.PI * 2 / 7 + phase * 8;
-          const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius;
-          poly([[x, y], [x - radius * (.6 + fire.flight), y + Math.sin(angle + 1) * 16],
-            [x - 9, y + 7]], i % 2 ? '#ffb52e' : '#e95b20', 0);
-        }
-        c.restore();
-        if (stream.launched) {
-          for (let i = 0; i < 19; i++) {
-            const u = mod(i * .173 + phase * 1.5, 1);
-            const x = cx - radius - u * Math.min(170, fire.flight * 370);
-            const y = Math.sin(i * 13 + phase * 8) * 22 * u;
-            c.save(); c.globalAlpha *= (1 - u) * .8;
-            poly([[x - 18, y], [x + 8, y - 3], [x + 2, y + 4]], i % 2 ? '#ffb72e' : '#ed6825', 0);
-            c.restore();
-          }
-        }
+      // Trong trận (fire.inPlace): quả cầu đã rời mắt do game vẽ như một viên đạn thật.
+      if (fire.curl > 0 && stream.radius > 0 && !(fire.inPlace && stream.launched)) {
+        fireball(stream.distance + fire.flight * 430, stream.radius, fire.curl, phase, id, fire.flight, stream.launched);
       }
       c.restore();
+    }
+  }
+  // Quả cầu lửa cuộn ở đầu luồng (tâm cx trên trục bắn); dùng chung cho xưởng và đạn trong trận.
+  function fireball(cx, radius, curl, phase, id, flight, launched) {
+    const colors = ['#b93c20', '#f16b20', '#ffb72e', '#fff0a1'];
+    // Les rubans de la pointe s'enroulent progressivement, puis la boule se détache.
+    for (let layer = 0; layer < 3; layer++) {
+      const points = Array.from({ length: 65 }, (_, i) => {
+        const u = i / 64, angle = u * Math.PI * 3.5 - phase * 13 + id * 2;
+        const r = radius * (1.35 - u * .95);
+        return [cx + Math.cos(angle) * r, Math.sin(angle) * r];
+      });
+      c.lineCap = 'round'; c.lineJoin = 'round';
+      line(points, colors[layer + 1], (13 - layer * 4) * curl);
+    }
+    c.save(); c.translate(cx, 0);
+    // Une silhouette de flammes tourne autour du noyau chaud, pas un disque lisse.
+    const shell = Array.from({ length: 46 }, (_, i) => {
+      const angle = i / 46 * Math.PI * 2;
+      const r = radius * (1 + .12 * Math.sin(i * 2.3 + phase * 28) + .08 * Math.sin(i * 4.7 - phase * 19));
+      return [Math.cos(angle) * r, Math.sin(angle) * r];
+    });
+    poly(shell, '#f57421', 0);
+    ellipse(-3, -2, radius * .7, radius * .65, '#ffc23b', null);
+    ellipse(1, -3, radius * .36, radius * .39, '#fff2b5', null);
+    for (let i = 0; i < 7; i++) {
+      const angle = i * Math.PI * 2 / 7 + phase * 8;
+      const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius;
+      poly([[x, y], [x - radius * (.6 + flight), y + Math.sin(angle + 1) * 16],
+        [x - 9, y + 7]], i % 2 ? '#ffb52e' : '#e95b20', 0);
+    }
+    c.restore();
+    if (launched) {
+      for (let i = 0; i < 19; i++) {
+        const u = mod(i * .173 + phase * 1.5, 1);
+        const x = cx - radius - u * Math.min(170, flight * 370);
+        const y = Math.sin(i * 13 + phase * 8) * 22 * u;
+        c.save(); c.globalAlpha *= (1 - u) * .8;
+        poly([[x - 18, y], [x + 8, y - 3], [x + 2, y + 4]], i % 2 ? '#ffb72e' : '#ed6825', 0);
+        c.restore();
+      }
     }
   }
   function vent(x, y, near, fire) {
@@ -583,6 +589,16 @@
     const i = base.idlePreview(time), ratio = ratioV();
     return { bob: i.bob * ratio, far: i.breathe.L * ratio, near: i.breathe.R * ratio };
   }
+  // Cùng nhịp F/J với Bastion (dòng Eye1); khoảng nghỉ chỉ dành cho vòng xem mẫu.
+  // Không phụ thuộc bastion.js: trong trận bộ vẽ này chạy độc lập trên EyeRimCore.
+  const punchTimings = {
+    jab: { windup: .07, active: .08, recover: .16, pause: .7 },
+    hook: { windup: .1, active: .08, recover: .22, pause: .7 },
+  };
+  function punchPose(clip, time) {
+    const m = punchTimings[clip], duration = m.windup + m.active + m.recover;
+    return env(mod(time, duration + m.pause), 0, m.windup, m.windup + m.active, duration);
+  }
   function poseAt(clip, time) {
     const t = mod(time, 2.8), gait = clip === 'walk' ? walkPose(time) : null;
     // Vanguard thở tay theo game.t cả khi đứng lẫn khi đi; nhún thân lúc đi do walkPose quyết định.
@@ -590,7 +606,7 @@
     const walk = gait ? gait.stride : 0;
     const hit = clip === 'stagger' ? staggerPose(time) : null;
     const celebration = clip === 'celebrate' ? celebrationPose(time) : null;
-    const punch = ['jab', 'hook'].includes(clip) ? base.punchPose(clip, time) : 0;
+    const punch = ['jab', 'hook'].includes(clip) ? punchPose(clip, time) : 0;
     const heavy = clip === 'ultimate' ? env(t, .08, .5, .72, 1.12) : 0;
     const diagonal = clip === 'special' ? diagonalPunchPose(time) : null;
     const uppercut = clip === 'blade' ? uppercutPose(time) : null;
@@ -608,9 +624,15 @@
       poly([[x - 7, -327], [x + 6, -327], [x, -305 + power * 43]], '#fff1c2', 0);
     }
   }
-  function body(p) {
-    const { clip, walk, hit, celebration: a, punch, punchArm, heavy, uppercut, guard, dash, cannon } = p;
+  // opts.inPlace (trong trận): vị trí bay/nhảy do game điều khiển (T.x, T.airY), không dời thân trong bộ vẽ;
+  // quả cầu lửa đã rời mắt do game vẽ như đạn. opts.jabTime: F (tay phải) đấm song song với móc K khi đồng bộ.
+  function body(p, opts = {}) {
+    const { clip, walk, hit, celebration: a, heavy, uppercut, guard, dash, cannon } = p;
     const gait = p.gait, diagonal = p.diagonal;
+    const jabSync = opts.jabTime != null;
+    const punchArm = jabSync ? 'right' : p.punchArm;
+    const punch = jabSync ? punchPose('jab', opts.jabTime) : p.punch;
+    const moveX = opts.inPlace ? 0 : 1;
     const mechanism = uppercut || diagonal;
     const crouch = hit ? hit.crouch : a ? a.crouch : guard * 10 + (diagonal ? diagonal.landing * 16 : 0);
     const idle = p.idle;
@@ -618,8 +640,8 @@
     const feetFar = a ? a.feetFar : 0, feetNear = a ? a.feetNear : 0;
     c.save();
     if (a) c.scale(a.spin, 1);
-    c.translate(dash * 32 + (diagonal ? diagonal.x : 0),
-      -sole - (a ? a.air : 0) + crouch + bob + (diagonal ? diagonal.y : 0));
+    c.translate((dash * 32 + (diagonal ? diagonal.x : 0)) * moveX,
+      -sole - (a && !opts.inPlace ? a.air : 0) + crouch + bob + (diagonal && !opts.inPlace ? diagonal.y : 0));
     // Bù riêng bàn chân: thân nhún nhưng chân trụ vẫn ở mặt đất, nhịp bước giữ như cũ.
     const lift = gait ? base.legTemplate.lift * gait.ratio : 0;
     const fyFar = -crouch - bob - (gait ? gait.far.lift * lift : 0);
@@ -647,7 +669,7 @@
     };
     // Tay phải (gần) tách rõ khỏi thân: viền tối dày + giáp sáng hơn.
     nearArmContrast(() => arm(-84, -423, near.upper, near.lower, true, heavy, 0, null, guard > 0));
-    eyeFlames(p.eyeFire);
+    eyeFlames(p.eyeFire && opts.inPlace ? { ...p.eyeFire, inPlace: true } : p.eyeFire);
     c.restore(); c.restore();
   }
   function draw(target, clip = 'idle', time = 0, facing = 1, zoom = 1) {
@@ -675,10 +697,41 @@
     cannon: 'L · Phun lửa hai mắt', special: 'I · Đấm điện lao chéo', ultimate: 'Quá tải thủy lực',
     celebrate: 'Ăn mừng', stagger: 'Trúng đòn',
   };
+  // Vẽ trong trận: ctx đã đặt gốc tại mặt đất dưới chân, scale theo mô hình Bulwark (titanDrawScale).
+  function drawInGame(ctx, clip, time, opts = {}) {
+    c = ctx; const p = poseAt(clip, time);
+    P = opts.hit ? white : normal;
+    c.save(); body(p, { ...opts, inPlace: true }); c.restore(); P = normal;
+  }
+  // Vẽ trong khung xem (màn chọn, huấn luyện) cùng camera trang xưởng, không tô nền.
+  function drawFramed(ctx, clip, time, facing, zoom, bx, by, bw, bh) {
+    c = ctx; const p = poseAt(clip, time);
+    P = p.hit?.flash ? white : normal;
+    const s = Math.min(bw / 760, bh / 540) * zoom * scale;
+    c.save(); c.translate(bx + bw * .46, by + bh * .9); c.scale(s * facing, s);
+    if (p.diagonal) c.scale(.82, .82);
+    if (p.celebration) c.scale(base.celebrationCamera, base.celebrationCamera);
+    if (p.diagonal) c.globalAlpha *= p.diagonal.visibility;
+    body(p); c.restore(); P = normal;
+  }
+  // Tâm hai quả cầu lửa lúc rời mắt (đơn vị mô hình, gốc mặt đất, trục x hướng mặt Titan).
+  const fireLaunch = fireEyes.map(eye => ({ x: eye.x + Math.cos(eye.angle) * eye.reach,
+    y: eye.y + Math.sin(eye.angle) * eye.reach - sole, angle: eye.angle, radius: 35 }));
+  // Đích hai nắm đấm ở tư thế chiêu đặc biệt (cùng công thức với body()).
+  function ultimateFists(time) {
+    const p = poseAt('ultimate', time), h = p.heavy;
+    const far = { upper: restArms.far.upper, lower: restArms.far.lower - h * .42 };
+    const near = { upper: restArms.near.upper - h * .96, lower: restArms.near.lower - h * .71 };
+    const tip = (sx, sy, q) => ({ x: sx + Math.cos(q.upper) * 104 + Math.cos(q.lower) * 160,
+      y: sy + Math.sin(q.upper) * 104 + Math.sin(q.lower) * 160 - sole });
+    return { heavy: h, far: tip(91, -424, far), near: tip(-84, -423, near) };
+  }
   window.EyeRimBulwark = {
-    crown, sole, eyeTop, scale, celebrationPose, staggerPose, poseAt, cockpitPose, restArms, uppercutPose, uppercutPeriod, fistLightning, eyeFirePose, eyeFirePeriod, walkPose, walkPeriod, idlePose, legKnee, legHips: [[-37, -277], [40, -277]], diagonalPunchPose, diagonalPunchPeriod,
+    crown, sole, eyeTop, scale, drawInGame, drawFramed, fireLaunch, ultimateFists, punchTimings, punchPose,
+    fireball(ctx, f) { c = ctx; c.save(); c.rotate(f.angle || 0); fireball(0, f.radius, 1, f.phase, f.id || 0, f.flight, true); c.restore(); }, celebrationPose, staggerPose, poseAt, cockpitPose, restArms, uppercutPose, uppercutPeriod, fistLightning, eyeFirePose, eyeFirePeriod, walkPose, walkPeriod, idlePose, legKnee, legHips: [[-37, -277], [40, -277]], diagonalPunchPose, diagonalPunchPeriod,
     setCockpitLift(value) { cockpitLift = cockpitPose(value).lift; },
   };
+  if (!window.TitanGallery) return;
   window.TitanGallery = {
     ...base, names: { ...base.names, bulwark: names },
     specs: { ...base.specs, bulwark: { crown, sole, eyeTop, scale, profileZoom: 1.65, series: 'Eye1',

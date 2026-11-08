@@ -1,5 +1,6 @@
 // KHÓA TEMPLATE 4 ĐỘNG TÁC CHUNG (Đứng im, Bước đi, Ăn mừng, Trúng đòn) cho MỌI Titan, kể cả Titan thêm sau này.
-// Tự nạp mọi bộ vẽ trong titans/ (trừ gallery.js và *-controls.js); mỗi bộ vẽ đăng ký window.EyeRim<Tên>
+// Tự nạp mọi bộ vẽ ở CẢ HAI nơi: bản nháp xưởng titans/ (trừ gallery.js và *-controls.js) và bản game src/titans/;
+// mỗi bộ vẽ đăng ký window.EyeRim<Tên>
 // phải đọc thẳng template trong src/game.js và chỉ quy đổi tỷ lệ bằng templateRatio(scale).
 // Chạy: node test/templates.js
 'use strict';
@@ -18,6 +19,11 @@ const ctx = new Proxy({}, {
   set(target, key, value) { target[key] = value; return true; },
 });
 const canvas = { width: 1200, height: 780, style: {}, getContext: () => ctx };
+const root = path.join(__dirname, '..');
+const gameSource = fs.readFileSync(path.join(root, 'src/game.js'), 'utf8');
+for (const dir of ['titans', 'src/titans']) checkDir(dir);
+
+function checkDir(dir) {
 const sandbox = {
   console, Math, Set, Map, Float32Array,
   document: { getElementById: () => canvas }, performance: { now: () => 0 },
@@ -25,12 +31,10 @@ const sandbox = {
   __TITAN_GALLERY__: true,
 };
 sandbox.window = sandbox;
-const root = path.join(__dirname, '..');
-const gameSource = fs.readFileSync(path.join(root, 'src/game.js'), 'utf8');
 vm.runInNewContext(gameSource, sandbox);
-const drawerFiles = fs.readdirSync(path.join(root, 'titans'))
+const drawerFiles = fs.readdirSync(path.join(root, dir))
   .filter(f => f.endsWith('.js') && f !== 'gallery.js' && !f.endsWith('-controls.js')).sort();
-for (const file of drawerFiles) vm.runInNewContext(fs.readFileSync(path.join(root, 'titans', file), 'utf8'), sandbox);
+for (const file of drawerFiles) vm.runInNewContext(fs.readFileSync(path.join(root, dir, file), 'utf8'), sandbox);
 
 const G = sandbox.TitanGallery;
 for (const key of ['idlePreview', 'walkPreview', 'celebrationPreview', 'staggerPreview', 'legTemplate', 'templateRatio', 'celebrationCamera']) {
@@ -43,7 +47,7 @@ for (const use of ['walkTemplate(T.walkT)', 'idleTemplate(game.t).bob', 'idleTem
 }
 
 const drawers = Object.keys(sandbox).filter(k => /^EyeRim[A-Z]/.test(k) && k !== 'EyeRimCore');
-assert(drawers.length >= 2, 'tìm thấy bộ vẽ Titan trong titans/');
+assert(drawers.length >= 2, `tìm thấy bộ vẽ Titan trong ${dir}/`);
 const near = (a, b, msg) => assert(Math.abs(a - b) < 1e-9, `${msg}: ${a} ≠ ${b}`);
 const required = ['scale', 'walkPose', 'walkPeriod', 'idlePose', 'celebrationPose', 'staggerPose', 'legKnee', 'legHips'];
 const times = [0, .07, .2, .3, .35, .5, .725, .9, 1.11, 1.6, 2.4, 2.9, 4.2];
@@ -93,5 +97,6 @@ for (const name of drawers) {
   }
   // Vẽ được cả 4 động tác, hai hướng.
   for (const clip of ['idle', 'walk', 'celebrate', 'stagger']) for (const t of [0, .5, 1.3]) for (const f of [-1, 1]) G.draw(canvas, id, clip, t, f);
-  console.log(`ok - ${id}: Đứng im, Bước đi, Ăn mừng, Trúng đòn theo đúng template chung`);
+  console.log(`ok - ${dir}/${id}: Đứng im, Bước đi, Ăn mừng, Trúng đòn theo đúng template chung`);
+}
 }

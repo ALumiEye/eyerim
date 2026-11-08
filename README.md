@@ -30,7 +30,7 @@ Menu chính: `W`/`S` (hoặc `↑`/`↓`, phím `1`–`5`) để chọn, `Enter`
 
 Kỷ lục lưu trong `localStorage` của trình duyệt.
 
-**Huấn luyện phi công** (mục 04): xem Titan diễn từng chiêu (di chuyển, lướt né, đỡ, đấm trái/phải, vũ khí K, vũ khí L, chiêu I, chiêu đặc biệt, ăn mừng). Kèm bảng chỉ số lấy thẳng từ số liệu chiến đấu: sát thương, tầm, năng lượng, đẩy lùi, thời gian gồng / ra đòn / hồi. Không có quái để đánh. `W`/`S` hoặc `1`–`0` chọn chiêu, `A`/`D` đổi Titan, `Space` dừng/phát, `R` lật hướng, `Esc` về menu. Màn này dùng chung bộ vẽ với trang mẫu `titans/*.html`.
+**Huấn luyện phi công** (mục 04): xem Titan diễn từng chiêu (đứng im, di chuyển, lướt né, đỡ, đấm trái/phải, vũ khí K, vũ khí L, chiêu I, chiêu đặc biệt, ăn mừng). Kèm bảng chỉ số lấy thẳng từ số liệu chiến đấu: sát thương, tầm, năng lượng, đẩy lùi, thời gian gồng / ra đòn / hồi. Không có quái để đánh. `W`/`S` hoặc `1`–`0` chọn chiêu (phím số chọn nhanh 10 mục đầu), `A`/`D` đổi Titan, `Space` dừng/phát, `R` lật hướng, `Esc` về menu. Màn này dùng chung bộ vẽ với trang mẫu `titans/*.html`.
 
 ## Điều khiển
 
@@ -42,7 +42,7 @@ Kỷ lục lưu trong `localStorage` của trình duyệt.
 | | | `I` | cú đấm phản lực (25 năng lượng) |
 | `F` | đấm trái | | |
 
-Bảng trên theo Vanguard. Tempest và Bastion dùng cùng phím, khác vũ khí K/L/I (xem mục Ba Titan). **Bastion đảo tay đấm:** `F` đấm tay phải, `J` đấm tay trái.
+Bảng trên theo Vanguard. Tempest, Bastion và Bulwark dùng cùng phím, khác vũ khí K/L/I (xem mục Bốn Titan). **Dòng Eye1 (Bastion, Bulwark) đảo tay đấm:** `F` đấm tay phải, `J` đấm tay trái.
 
 `H` hướng dẫn · `Esc`/`P` (hoặc nút ⏸ góc phải dưới) mở menu tạm dừng: tiếp tục, cài đặt âm thanh, hướng dẫn, chơi lại, thoát về menu chính · `M` bật/tắt tiếng
 
@@ -78,15 +78,18 @@ Từ đợt thứ hai trở đi chỉ chiếu cảnh 3. Bấm `Enter`, `Space`, 
 
 Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp II, thêm phun axit và lao húc) và **Leviathrax** (Cấp III, thêm tiếng gầm hút Link). Khi máu xuống dưới 50%, quái vật vào trạng thái *cuồng nộ* và đánh nhanh hơn.
 
-## Ba Titan
+## Bốn Titan
 
 | Titan | Máu | Tốc độ | K | L | I | Chiêu đặc biệt |
 |---|---:|---:|---|---|---|---|
 | Vanguard | 150 | 270 | Kiếm xích tầm xa | Pháo plasma nạp lực | Đấm phản lực, lao tới chắc trúng | Xung lò phản ứng |
 | Tempest | 125 | 340 | Lưỡi kép cổ tay, nhanh | 6 tên lửa (giữ đủ 2 s) | Đập phản lực từ trên xuống | Mưa tên lửa vệ tinh |
 | Bastion | 165 | 235 | Búa móc từ dưới lên, mạnh và xa | Tên lửa kép: nạp lực, 2 tên lửa lớn tự dẫn | Búa phản lực: bay lên phang búa xuống | Loạt pháo kép |
+| Bulwark | 165 | 220 | Móc thủy lực tay trái, sét vàng | Phun lửa hai mắt: nạp lực, 2 cầu lửa | Đấm điện lao chéo rồi rơi thẳng xuống | Quá tải thủy lực |
 
 Bastion **đảo tay đấm**: F đấm tay phải, J đấm tay trái (cùng tay với búa K), nên F+K vẫn là hai phi công đánh hai tay khác nhau. Bastion trâu và đánh đau nhất nhưng chậm, hồi năng lượng chậm hơn (×0,8): hợp lối chơi đứng tấn, đỡ đòn và phản đòn bằng búa.
+
+Bulwark cùng dòng Eye1 nên cũng F tay phải, J tay trái (cùng tay với móc K). Chậm nhất trong bốn Titan, hồi năng lượng ×0,8. K biến hình tay trái thành nắm đấm lớn bọc sét vàng rồi móc lên; I tích điện khi đứng yên rồi lao chéo thẳng vào quái; chiêu đặc biệt dùng hai nắm đấm nén 6 luồng xung áp.
 
 ## Thông số kỹ thuật Titan
 
@@ -97,6 +100,7 @@ Thông số hư cấu của EyeRim, không phải số liệu chính thức củ
 | Vanguard | 80 m | 2.400 tấn | Giáp nặng, lò phản ứng ngực, pháo plasma biến hình |
 | Tempest | 80 m | 1.850 tấn | Khung nhẹ cơ động, lưỡi kép, bệ phóng tên lửa |
 | Bastion | 84 m | 2.950 tấn | Pháo binh hạng nặng: búa thủy lực, hai pháo vai phóng tên lửa lớn |
+| Bulwark | — | — | Dòng Eye1, động cơ hạt nhân, buồng lái vàng trượt trong rãnh ngực (chưa có số liệu chiều cao/khối lượng) |
 
 Chiều cao đo từ đế chân tới đỉnh đầu ở tư thế đứng, không tính vây lưng. Bộ vẽ thu/phóng đồng nhất cả hai trục để mọi Titan cao bằng nhau mà không đổi tỷ lệ đầu, thân hay tay chân. Thông số xuất hiện trên thẻ chọn Titan và trang xem mẫu; không thay đổi HP, tốc độ hay sát thương.
 
@@ -138,9 +142,9 @@ Phát hành bản mới: viết ghi chú ở `docs/releases/vX.Y.Z.md` (không c
 
 ## Xem mẫu Titan
 
-Mở trực tiếp `titans/vanguard.html` hoặc `titans/tempest.html` trong trình duyệt. Mỗi trang có hai hướng nhìn ngang và 12 động tác/chiêu thức, nút phát/dừng, đổi hướng, tốc độ, phóng to và thanh tua thời điểm. Không cần server hay cài thư viện.
+Mở trực tiếp `titans/vanguard.html`, `tempest.html`, `bastion.html` hoặc `bulwark.html` trong trình duyệt. Mỗi trang có hai hướng nhìn ngang và 12 động tác/chiêu thức, nút phát/dừng, đổi hướng, tốc độ, phóng to và thanh tua thời điểm. Không cần server hay cài thư viện.
 
-Các trang dùng chung hàm vẽ và IK trong `src/game.js`, nên chỉnh nhân vật sẽ cập nhật cả game lẫn trang mẫu. Hiệu ứng đạn/tên lửa trên trang mẫu là minh họa chuyển động, không mô phỏng sát thương hay AI. Gallery chỉ dùng tên Vanguard/Tempest và tài nguyên trong repo, không hiển thị tên hay ảnh tham chiếu bên ngoài.
+`titans/` là **xưởng thiết kế, không ảnh hưởng game**. Bastion và Bulwark có bản nháp `titans/<id>.js` để thử thoải mái; game chỉ dùng bản trong `src/titans/<id>.js`. Duyệt xong thì đưa vào game bằng `npm run promote <id>` (chép nháp sang game, chạy test, hỏng thì tự hoàn tác); `npm run promote` không tham số cho biết bản nào đang khác game. Vanguard/Tempest vẽ trong `src/game.js`, trang xem của hai Titan này đọc thẳng từ đó. Hiệu ứng đạn/tên lửa trên trang mẫu là minh họa chuyển động, không mô phỏng sát thương hay AI. Gallery chỉ dùng tên Vanguard/Tempest và tài nguyên trong repo, không hiển thị tên hay ảnh tham chiếu bên ngoài.
 
 ## Cấu trúc
 
@@ -148,12 +152,14 @@ Các trang dùng chung hàm vẽ và IK trong `src/game.js`, nên chỉnh nhân 
 index.html      trang chứa canvas
 style.css       căn giữa và co giãn canvas
 src/game.js     toàn bộ game: logic, AI, đồ họa vẽ bằng code, âm thanh WebAudio
-titans/        mỗi Titan một HTML xem mẫu, dùng chung gallery.css và gallery.js
+src/titans/     bộ vẽ Bastion/Bulwark mà GAME dùng (chỉ cập nhật bằng npm run promote)
+titans/         xưởng thiết kế: bản nháp bộ vẽ + mỗi Titan một HTML xem mẫu (gallery.css, gallery.js); không ảnh hưởng game
 test/gallery.js kiểm tra mọi động tác/hướng của các trang mẫu
 test/smoke.js   bot tự chơi hết chiến dịch trong Node với canvas giả
 test/balance.js đo cân bằng: bot spam phải thua, bot chơi khá phải thắng (độ khó THƯỜNG)
 test/bots.js    các bot tự chơi dùng chung cho smoke và balance
 tools/build.js  build dist/ (Pages) và dist/eyerim.html (Release)
+tools/promote.js đưa bản nháp titans/<id>.js vào game src/titans/<id>.js
 ```
 
 ## Kiểm thử

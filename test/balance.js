@@ -11,7 +11,8 @@ const { spamBot, makeSkilledBot } = require('./bots');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'game.js'), 'utf8');
 const SCRIPT = new vm.Script(SRC, { filename: 'game.js' });
-const BASTION = new vm.Script(fs.readFileSync(path.join(__dirname, '..', 'titans', 'bastion.js'), 'utf8'), { filename: 'bastion.js' });
+const BASTION = new vm.Script(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bastion.js'), 'utf8'), { filename: 'bastion.js' });
+const BULWARK = new vm.Script(fs.readFileSync(path.join(__dirname, '..', 'src', 'titans', 'bulwark.js'), 'utf8'), { filename: 'bulwark.js' });
 
 function mulberry32(a) {
   return function () {
@@ -61,6 +62,7 @@ function createGame(seed) {
   sb.window = sb;
   SCRIPT.runInNewContext(sb);
   BASTION.runInContext(sb);
+  BULWARK.runInContext(sb);
   const fire = (type, code) => (listeners[type] || []).forEach((fn) => fn({ code, preventDefault: noop }));
   const botRng = mulberry32(seed ^ 0x9e3779b9);
   return {
@@ -97,7 +99,7 @@ function duel({ kaiju, diff = 1, titan = 0, bot, seed, limit = 180 }) {
 }
 
 const KAIJU = ['BRINECRAWLER', 'GORGEMAW', 'LEVIATHRAX'];
-const TITANS = ['VANGUARD', 'TEMPEST', 'BASTION'];
+const TITANS = ['VANGUARD', 'TEMPEST', 'BASTION', 'BULWARK'];
 const RUNS = Number(process.env.BAL_RUNS) || 8;
 
 function summarize(label, bot, kaiju, titan) {

@@ -45,7 +45,7 @@ function makeSkilledBot({ reaction = 0.2, counterRate = 0.7, dodgeRate = 0.8 } =
     const blade = T.def.moves.blade || { windup: 0.32, range: 320 };
     const gap = Math.abs(K.x - T.x) - K.half - TITAN_HALF;
     const toward = K.x > T.x ? 'KeyD' : 'KeyA';
-    const armsFree = !T.arms.L && !T.arms.R && !T.slide && !T.leap && !T.beaming;
+    const armsFree = !T.arms.L && !T.arms.R && !T.slide && !T.leap && !T.dive && !T.beaming;
 
     // đang nạp L: giữ tới ~75% rồi thả; quái gồng thì thả ngay
     if (T.charge) {

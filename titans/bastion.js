@@ -1,4 +1,5 @@
-/* Bastion — bộ vẽ dùng chung cho xưởng (titans/bastion.html) và trận đấu (src/game.js).
+/* Bastion — bộ vẽ Titan. Bản NHÁP thiết kế: titans/bastion.js (trang xưởng titans/bastion.html);
+ * bản GAME: src/titans/bastion.js, chỉ cập nhật bằng `npm run promote bastion` (chép nháp → game sau khi test qua).
  * Giáp và pháo bám năm ảnh người dùng; cụm lưng theo ảnh tham chiếu thứ 5.
  * Góc ngang 3/4, tư thế sẵn sàng.
  * Giữ chung các ô chiêu S/W/F/J/K/L/I với Vanguard và Tempest.
