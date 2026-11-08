@@ -229,7 +229,7 @@ const checkShots = path.join(os.tmpdir(), 'eyerim-check-shots');
         }
         await page.locator('#flip').click();
         await page.locator('[data-clip="cannon"]').click();
-        assert.equal(await page.locator('#pose-name').innerText(), 'L · Phun lửa hai mắt');
+        assert.equal(await page.locator('#pose-name').innerText(), 'L · Phun lửa');
         for (const direction of [1, -1]) {
           if (direction === -1) await page.locator('#flip').click();
           for (const time of [.3, 1.05, 1.45, 1.9, 2.15, 2.5]) {
