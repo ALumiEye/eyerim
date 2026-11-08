@@ -30,7 +30,7 @@ Menu chính: `W`/`S` (hoặc `↑`/`↓`, phím `1`–`5`) để chọn, `Enter`
 
 Kỷ lục lưu trong `localStorage` của trình duyệt.
 
-**Huấn luyện phi công** (mục 04): xem Titan diễn từng chiêu (đứng im, di chuyển, lướt né, đỡ, đấm trái/phải, vũ khí K, vũ khí L, chiêu I, chiêu đặc biệt, ăn mừng). Kèm bảng chỉ số lấy thẳng từ số liệu chiến đấu: sát thương, tầm, năng lượng, đẩy lùi, thời gian gồng / ra đòn / hồi. Không có quái để đánh. `W`/`S` hoặc `1`–`0` chọn chiêu (phím số chọn nhanh 10 mục đầu), `A`/`D` đổi Titan, `Space` dừng/phát, `R` lật hướng, `Esc` về menu. Màn này dùng chung bộ vẽ với trang mẫu `titans/*.html`.
+**Huấn luyện phi công** (mục 04): xem Titan diễn từng chiêu (đứng im, di chuyển, lướt né, đỡ, đấm trái/phải, vũ khí K, vũ khí L, chiêu I, chiêu đặc biệt, ăn mừng). Kèm bảng chỉ số lấy thẳng từ số liệu chiến đấu: sát thương, tầm, năng lượng, đẩy lùi, thời gian gồng / ra đòn / hồi. Không có quái để đánh. `W`/`S` hoặc `1`–`0` chọn chiêu (phím số chọn nhanh 10 mục đầu), `A`/`D` đổi Titan, `Space` dừng/phát, `R` lật hướng, `Esc` về menu. Ở mục chiêu đặc biệt (`F+J`), nút **▶ Xem với quái thật** (hoặc phím `M`) mở cảnh toàn màn hình với thành phố, bờ biển và một con quái thật: Titan tung chiêu bằng đúng logic trận đấu, hiện sát thương thật rồi tự phát lại; `A`/`D` đổi Titan, `Enter` phát lại, `Esc` quay lại mục đó. Màn Huấn luyện dùng đúng bộ vẽ của trận đấu.
 
 ## Điều khiển
 
@@ -85,11 +85,11 @@ Chiến dịch gồm 3 đợt: **Brinecrawler** (Cấp I), **Gorgemaw** (Cấp I
 | Vanguard | 150 | 270 | Kiếm xích tầm xa | Pháo plasma nạp lực | Đấm phản lực, lao tới chắc trúng | Xung lò phản ứng |
 | Tempest | 125 | 340 | Lưỡi kép cổ tay, nhanh | 6 tên lửa (giữ đủ 2 s) | Đập phản lực từ trên xuống | Mưa tên lửa vệ tinh |
 | Bastion | 165 | 235 | Búa móc từ dưới lên, mạnh và xa | Tên lửa kép: nạp lực, 2 tên lửa lớn tự dẫn | Búa phản lực: bay lên phang búa xuống | Loạt pháo kép |
-| Bulwark | 165 | 220 | Móc thủy lực tay trái, sét vàng | Phun lửa hai mắt: nạp lực, 2 cầu lửa | Đấm điện lao chéo rồi rơi thẳng xuống | Quá tải thủy lực |
+| Bulwark | 165 | 220 | Móc thủy lực tay trái, sét vàng | Phun lửa hai mắt: nạp lực, 2 cầu lửa | Đấm điện lao chéo rồi rơi thẳng xuống | Quá tải hạt nhân |
 
 Bastion **đảo tay đấm**: F đấm tay phải, J đấm tay trái (cùng tay với búa K), nên F+K vẫn là hai phi công đánh hai tay khác nhau. Bastion trâu và đánh đau nhất nhưng chậm, hồi năng lượng chậm hơn (×0,8): hợp lối chơi đứng tấn, đỡ đòn và phản đòn bằng búa.
 
-Bulwark cùng dòng Eye1 nên cũng F tay phải, J tay trái (cùng tay với móc K). Chậm nhất trong bốn Titan, hồi năng lượng ×0,8. K biến hình tay trái thành nắm đấm lớn bọc sét vàng rồi móc lên; I tích điện khi đứng yên rồi lao chéo thẳng vào quái; chiêu đặc biệt dùng hai nắm đấm nén 6 luồng xung áp.
+Bulwark cùng dòng Eye1 nên cũng F tay phải, J tay trái (cùng tay với móc K). Chậm nhất trong bốn Titan, hồi năng lượng ×0,8. K biến hình tay trái thành nắm đấm lớn bọc sét vàng rồi móc lên; I tích điện khi đứng yên rồi lao chéo thẳng vào quái; chiêu đặc biệt Quá tải hạt nhân: toàn thân tích điện, hai vòi dưới nắm đấm phun lửa, hai mắt phóng hai cầu lửa vào quái.
 
 ## Thông số kỹ thuật Titan
 

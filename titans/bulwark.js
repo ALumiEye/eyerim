@@ -370,12 +370,121 @@
     }
     c.restore();
   }
+  // ===== CHIÊU ĐẶC BIỆT · QUÁ TẢI HẠT NHÂN =====
+  // Hai vòi phun lửa gắn DƯỚI nắm đấm (khung cẳng tay): giá treo gập xuống trên bản lề, ống lồng trượt ra trước,
+  // loa phun nằm ngay dưới mặt đấm. Hai mắt tụ nhiệt và phóng 2 cầu lửa đúng nhịp chiêu L (eyeFirePose);
+  // toàn thân phủ tia sét vàng. Mọi luồng lửa và cầu lửa hướng về phía quái.
+  const ultimatePeriod = eyeFirePeriod; // 4,2 s: cầu lửa rời mắt ở 2,25 s như L
+  // Hai tay lệch tầng để thấy rõ HAI vòi/HAI luồng: tay xa cao hơn, hơi chếch lên; tay gần thấp, thẳng ra trước.
+  const ULT_ARMS = { far: { upper: 2.02, lower: -.13 }, near: { upper: 1.86, lower: .02 } };
+  const NOZZLE = { hingeX: 72, hingeY: 30, drop: 14, tip: 152 }; // đầu loa phun: x = 72 + 152, y = 30 + 14 (dưới nắm đấm)
+  function ultimatePose(time) {
+    const t = mod(time, ultimatePeriod);
+    return {
+      phase: t,
+      raise: env(t, .02, .45, 3.3, 3.8), // hai tay đưa thẳng ra trước, hướng về quái
+      deploy: env(t, .3, .85, 2.95, 3.4), // vòi gập xuống và trượt ra
+      spray: env(t, 1.0, 1.25, 2.7, 3.0), // phun lửa
+      grow: smooth((t - 1.0) / .35), // luồng lửa vươn dần tới quái
+      electric: env(t, .1, .6, 3.0, 3.6), // toàn thân tích điện
+      eyes: eyeFirePose(t),
+    };
+  }
+  // Đầu loa phun trong khung thân (để tính luồng lửa dài tới đúng quái trong trận).
+  function nozzleTip(sx, sy, q) {
+    const ex = sx + Math.cos(q.upper) * 104, ey = sy + Math.sin(q.upper) * 104;
+    const fx = NOZZLE.hingeX + NOZZLE.tip, fy = NOZZLE.hingeY + NOZZLE.drop;
+    return { x: ex + Math.cos(q.lower) * fx - Math.sin(q.lower) * fy, y: ey + Math.sin(q.lower) * fx + Math.cos(q.lower) * fy };
+  }
+  function flameNozzle(n) {
+    const d = n.deploy;
+    if (d <= 0) return;
+    c.save(); c.translate(NOZZLE.hingeX, NOZZLE.hingeY);
+    c.rotate((1 - d) * -.55); // gập từ sát cẳng tay xuống vị trí phun
+    const y = NOZZLE.drop * d, len = 40 + (NOZZLE.tip - 58) * d;
+    poly([[-10, -7], [26, -7], [30, y + 4], [-6, y + 4]], P.frame, 1.5); // giá treo
+    piston([2, -3], [20, y - 2], 3);
+    poly([[0, y - 10], [60, y - 11], [60, y + 11], [0, y + 10]], P.dark, 2); // ống ngoài
+    for (const x of [12, 33, 52]) line([[x, y - 9], [x, y + 9]], P.steel, 2);
+    poly([[56, y - 7], [len, y - 6], [len, y + 6], [56, y + 7]], P.steel, 1.6); // ống lồng trượt ra
+    line([[58, y - 4], [len - 2, y - 4]], P.rim, 1);
+    poly([[len, y - 6], [len + 18, y - 12], [len + 18, y + 12], [len, y + 6]], P.shadow, 1.8); // loa phun
+    ellipse(len + 18, y, 4, 12, P.black, P.edge, 1.2);
+    if (n.spray > 0) ellipse(len + 18, y, 5, 9 * n.spray, '#ffb72e', null); // lửa mồi
+    // Lượt viền tối của tay gần không vẽ luồng lửa.
+    if (!silhouette && n.spray > 0) {
+      c.save(); c.translate(len + 18, y);
+      flameJet(Math.max(60, n.reach * n.grow), n.spray, n.phase, n.id);
+      c.restore();
+    }
+    c.restore();
+  }
+  // Luồng súng phun lửa: loe dần theo khoảng cách, gợn sóng, có lưỡi lửa rời; đầu luồng bùng tròn ở mục tiêu.
+  function flameJet(length, k, phase, id) {
+    const colors = ['#b93c20', '#f16b20', '#ffb72e', '#fff0a1'];
+    for (let layer = 0; layer < 4; layer++) {
+      const width = (24 - layer * 5.5) * k;
+      const edge = side => Array.from({ length: 41 }, (_, i) => {
+        const u = i / 40;
+        const wave = Math.sin(u * 23 - phase * 26 + id * 2) * 6 + Math.sin(u * 47 - phase * 39 + id) * 3;
+        return [u * length, wave * u + side * width * (.3 + u * 1.15) * (1 + Math.sin(u * 37 - phase * 29) * .15)];
+      });
+      poly([...edge(-1), ...edge(1).reverse()], colors[layer], 0);
+    }
+    for (let i = 0; i < 22; i++) {
+      const u = mod(i * .113 + phase * 1.1 + id * .3, 1), x = u * length;
+      const y = Math.sin(i * 7 + phase * 14) * (8 + u * 34);
+      poly([[x - 16, y], [x + 14, y - 4], [x + 5, y + 5]], i % 2 ? '#ffbd39' : '#e46325', 0);
+    }
+    const r = (26 + 8 * Math.sin(phase * 31 + id)) * k;
+    ellipse(length, 0, r * 1.1, r * 1.25, '#f57421', null);
+    ellipse(length - 4, -2, r * .7, r * .8, '#ffc23b', null);
+    ellipse(length - 6, -3, r * .35, r * .4, '#fff2b5', null);
+  }
+  // Viền sét vàng chạy quanh toàn thân (điểm theo đường bao đầu trụ – vai – thân – chân), nhấp nháy theo nhịp.
+  const BODY_OUTLINE = [[-55, -592], [10, -606], [68, -588], [74, -512], [112, -474], [130, -430], [114, -380],
+    [82, -330], [64, -292], [72, -200], [96, -100], [104, -18], [60, -6], [32, -120], [4, -252], [-30, -120],
+    [-70, -10], [-112, -20], [-98, -120], [-72, -232], [-64, -300], [-104, -360], [-128, -430], [-102, -472], [-72, -502]];
+  function bodyElectric(e, phase) {
+    if (e <= 0) return;
+    const tick = Math.floor(phase * 22);
+    const hash = n => mod(Math.sin(n * 12.9898) * 43758.5453, 1);
+    c.save();
+    // Toàn thân sáng lên: quầng vàng cộng sáng phủ cả robot.
+    c.globalCompositeOperation = 'lighter';
+    // Quầng bầu dục ôm dáng robot (cao hơn rộng), không phải một đĩa tròn.
+    c.save(); c.translate(10, -310); c.scale(.62, 1);
+    const glow = c.createRadialGradient(0, 0, 20, 0, 0, 330);
+    glow.addColorStop(0, `rgba(255,226,90,${.3 * e})`);
+    glow.addColorStop(.55, `rgba(255,200,60,${.13 * e})`);
+    glow.addColorStop(1, 'rgba(255,200,60,0)');
+    c.fillStyle = glow; c.fillRect(-340, -340, 680, 680); c.restore();
+    c.globalCompositeOperation = 'source-over';
+    c.globalAlpha *= e * (.82 + .18 * Math.sin(phase * 71));
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    const n = BODY_OUTLINE.length;
+    for (let i = 0; i < n; i++) {
+      if (hash(i * 7.1 + tick) < .3) continue; // từng đoạn tắt/bật ngẫu nhiên → nhấp nháy
+      const [ax, ay] = BODY_OUTLINE[i], [bx, by] = BODY_OUTLINE[(i + 1) % n];
+      const nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
+      const pts = Array.from({ length: 6 }, (_, j) => {
+        const u = j / 5, off = j === 0 || j === 5 ? 0 : (hash(i * 3.3 + j * 1.7 + tick * .61) - .5) * 26;
+        return [ax + (bx - ax) * u + nx / nl * off, ay + (by - ay) * u + ny / nl * off];
+      });
+      line(pts, '#bc7b19', 5); line(pts, '#ffdc38', 3); line(pts, '#fff7b0', 1.1);
+      if (hash(i + tick * 1.3) > .6) { // nhánh phụ bắn ra ngoài
+        const [fx, fy] = pts[2];
+        line([[fx, fy], [fx + nx / nl * 18 + 6, fy + ny / nl * 18 - 8], [fx + nx / nl * 30, fy + ny / nl * 30 + 4]], '#ffdc38', 1.8);
+      }
+    }
+    c.restore();
+  }
   function shoulder(sx, sy, near) {
     c.save(); c.translate(sx - 4, sy - 5);
     plate([[-36, -24], [-19, -42], [16, -39], [37, -19], [36, 22], [19, 35], [-24, 30], [-39, 9]], near, .15);
     joint(-4, -4, 25, near); star(-4, -4, 7); c.restore();
   }
-  function arm(sx, sy, upper, lower, near, power = 0, extension = 0, mechanism = null, guarding = false) {
+  function arm(sx, sy, upper, lower, near, power = 0, extension = 0, mechanism = null, guarding = false, nozzle = null) {
     c.save(); c.translate(sx, sy);
     joint(0, 0, 34, near);
     c.save(); c.rotate(upper);
@@ -400,6 +509,7 @@
     plate([[61, -24], [91, -30], [112, -18], [108, 16], [69, 24]], near, .25);
     line([[60, 27], [105, 31]], P.red, 3);
     bolt(59, -17); bolt(115, 20); fist(130, 0, near, power, mechanism);
+    if (nozzle) flameNozzle(nozzle);
     c.restore(); c.restore();
     if (!guarding) shoulder(sx, sy, near);
   }
@@ -607,13 +717,14 @@
     const hit = clip === 'stagger' ? staggerPose(time) : null;
     const celebration = clip === 'celebrate' ? celebrationPose(time) : null;
     const punch = ['jab', 'hook'].includes(clip) ? punchPose(clip, time) : 0;
-    const heavy = clip === 'ultimate' ? env(t, .08, .5, .72, 1.12) : 0;
+    const ult = clip === 'ultimate' ? ultimatePose(time) : null;
+    const heavy = ult ? ult.raise : 0;
     const diagonal = clip === 'special' ? diagonalPunchPose(time) : null;
     const uppercut = clip === 'blade' ? uppercutPose(time) : null;
     // Dòng Eye1: F dùng tay phải (gần), J dùng tay trái (xa), như Bastion.
     const punchArm = clip === 'jab' ? 'right' : clip === 'hook' ? 'left' : null;
-    return { clip, t, time, walk, gait, idle, hit, celebration, punch, punchArm, heavy, uppercut, diagonal,
-      eyeFire: clip === 'cannon' ? eyeFirePose(time) : null,
+    return { clip, t, time, walk, gait, idle, hit, celebration, punch, punchArm, heavy, ult, uppercut, diagonal,
+      eyeFire: clip === 'cannon' ? eyeFirePose(time) : ult ? ult.eyes : null,
       guard: clip === 'guard' ? 1 : 0, dash: clip === 'dash' ? env(t, .05, .22, .6, .95) : 0,
       cannon: clip === 'cannon' ? env(mod(time, eyeFirePeriod), .05, .5, 2.3, 2.75) : 0 };
   }
@@ -627,7 +738,7 @@
   // opts.inPlace (trong trận): vị trí bay/nhảy do game điều khiển (T.x, T.airY), không dời thân trong bộ vẽ;
   // quả cầu lửa đã rời mắt do game vẽ như đạn. opts.jabTime: F (tay phải) đấm song song với móc K khi đồng bộ.
   function body(p, opts = {}) {
-    const { clip, walk, hit, celebration: a, heavy, uppercut, guard, dash, cannon } = p;
+    const { walk, hit, celebration: a, ult, uppercut, guard, dash, cannon } = p;
     const gait = p.gait, diagonal = p.diagonal;
     const jabSync = opts.jabTime != null;
     const punchArm = jabSync ? 'right' : p.punchArm;
@@ -656,20 +767,34 @@
     c.save(); c.translate(0, -280); c.rotate(hit ? hit.lean : a ? a.lean : dash * .11 + (diagonal ? diagonal.tilt : 0)); c.translate(0, 280);
     jets(a ? a.thrust : 0, p.time);
     diagonalTrail(diagonal);
-    const far = hit ? hit.far : a ? { upper: a.farUpper, lower: a.farLower } : mechanism || {
+    // Chiêu đặc biệt: hai tay đưa thẳng ra trước theo ULT_ARMS, vòi phun dưới nắm đấm hướng về quái.
+    const toUlt = (side, q) => (ult ? {
+      upper: q.upper + (ULT_ARMS[side].upper - restArms[side].upper) * ult.raise,
+      lower: q.lower + (ULT_ARMS[side].lower - restArms[side].lower) * ult.raise,
+    } : q);
+    const nozzle = (id, sx, sy, q) => {
+      if (!ult || ult.deploy <= 0) return null;
+      // Trong trận: luồng lửa dài tới đúng mép quái (opts.flameTargetX, khung thân); xưởng: 600 đv mô hình.
+      const reach = opts.flameTargetX != null ? Math.max(80, Math.min(1800, opts.flameTargetX - nozzleTip(sx, sy, q).x)) : 600;
+      return { deploy: ult.deploy, spray: ult.spray, grow: ult.grow, phase: p.time, id, reach };
+    };
+    const power = ult ? ult.electric : 0;
+    const far = hit ? hit.far : a ? { upper: a.farUpper, lower: a.farLower } : mechanism || toUlt('far', {
       upper: restArms.far.upper - (punchArm === 'left' ? punch * 1.83 : 0) - guard * 1.08 - cannon * .98 + (idle ? idle.far * .005 : 0),
-      lower: restArms.far.lower - (punchArm === 'left' ? punch * .67 : 0) - guard * 1.22 - (clip === 'ultimate' ? heavy * .42 : 0) + (idle ? idle.far * .012 : 0),
-    };
-    arm(91, -424, far.upper, far.lower, false, mechanism ? mechanism.power : heavy,
-      mechanism?.extension ?? 0, mechanism, guard > 0);
+      lower: restArms.far.lower - (punchArm === 'left' ? punch * .67 : 0) - guard * 1.22 + (idle ? idle.far * .012 : 0),
+    });
+    arm(91, -424, far.upper, far.lower, false, mechanism ? mechanism.power : power,
+      mechanism?.extension ?? 0, mechanism, guard > 0, nozzle(0, 91, -424, far));
     head(p.eyeFire); torso(); cockpit();
-    const near = hit ? hit.near : a ? { upper: a.nearUpper, lower: a.nearLower } : {
-      upper: restArms.near.upper - (punchArm === 'right' ? punch * 1.61 : 0) - guard * .34 - heavy * .96 + (idle ? idle.near * .005 : 0),
-      lower: restArms.near.lower + (punchArm === 'right' ? punch * .04 : 0) - guard * 1.11 - heavy * .71 + (idle ? idle.near * .012 : 0),
-    };
+    const near = hit ? hit.near : a ? { upper: a.nearUpper, lower: a.nearLower } : toUlt('near', {
+      upper: restArms.near.upper - (punchArm === 'right' ? punch * 1.61 : 0) - guard * .34 + (idle ? idle.near * .005 : 0),
+      lower: restArms.near.lower + (punchArm === 'right' ? punch * .04 : 0) - guard * 1.11 + (idle ? idle.near * .012 : 0),
+    });
     // Tay phải (gần) tách rõ khỏi thân: viền tối dày + giáp sáng hơn.
-    nearArmContrast(() => arm(-84, -423, near.upper, near.lower, true, heavy, 0, null, guard > 0));
+    const nearNozzle = nozzle(1, -84, -423, near);
+    nearArmContrast(() => arm(-84, -423, near.upper, near.lower, true, power, 0, null, guard > 0, nearNozzle));
     eyeFlames(p.eyeFire && opts.inPlace ? { ...p.eyeFire, inPlace: true } : p.eyeFire);
+    if (ult) bodyElectric(ult.electric, p.time);
     c.restore(); c.restore();
   }
   function draw(target, clip = 'idle', time = 0, facing = 1, zoom = 1) {
@@ -694,7 +819,7 @@
   const names = {
     idle: 'Đứng nghỉ', walk: 'Bước đi', guard: 'S · Đỡ đòn', dash: 'W · Lướt né',
     jab: 'F · Đấm phải', hook: 'J · Đấm trái', blade: 'K · Móc thủy lực',
-    cannon: 'L · Phun lửa hai mắt', special: 'I · Đấm điện lao chéo', ultimate: 'Quá tải thủy lực',
+    cannon: 'L · Phun lửa hai mắt', special: 'I · Đấm điện lao chéo', ultimate: 'Quá tải hạt nhân',
     celebrate: 'Ăn mừng', stagger: 'Trúng đòn',
   };
   // Vẽ trong trận: ctx đã đặt gốc tại mặt đất dưới chân, scale theo mô hình Bulwark (titanDrawScale).
@@ -717,17 +842,8 @@
   // Tâm hai quả cầu lửa lúc rời mắt (đơn vị mô hình, gốc mặt đất, trục x hướng mặt Titan).
   const fireLaunch = fireEyes.map(eye => ({ x: eye.x + Math.cos(eye.angle) * eye.reach,
     y: eye.y + Math.sin(eye.angle) * eye.reach - sole, angle: eye.angle, radius: 35 }));
-  // Đích hai nắm đấm ở tư thế chiêu đặc biệt (cùng công thức với body()).
-  function ultimateFists(time) {
-    const p = poseAt('ultimate', time), h = p.heavy;
-    const far = { upper: restArms.far.upper, lower: restArms.far.lower - h * .42 };
-    const near = { upper: restArms.near.upper - h * .96, lower: restArms.near.lower - h * .71 };
-    const tip = (sx, sy, q) => ({ x: sx + Math.cos(q.upper) * 104 + Math.cos(q.lower) * 160,
-      y: sy + Math.sin(q.upper) * 104 + Math.sin(q.lower) * 160 - sole });
-    return { heavy: h, far: tip(91, -424, far), near: tip(-84, -423, near) };
-  }
   window.EyeRimBulwark = {
-    crown, sole, eyeTop, scale, drawInGame, drawFramed, fireLaunch, ultimateFists, punchTimings, punchPose,
+    crown, sole, eyeTop, scale, drawInGame, drawFramed, fireLaunch, ultimatePose, ultimatePeriod, punchTimings, punchPose,
     fireball(ctx, f) { c = ctx; c.save(); c.rotate(f.angle || 0); fireball(0, f.radius, 1, f.phase, f.id || 0, f.flight, true); c.restore(); }, celebrationPose, staggerPose, poseAt, cockpitPose, restArms, uppercutPose, uppercutPeriod, fistLightning, eyeFirePose, eyeFirePeriod, walkPose, walkPeriod, idlePose, legKnee, legHips: [[-37, -277], [40, -277]], diagonalPunchPose, diagonalPunchPeriod,
     setCockpitLift(value) { cockpitLift = cockpitPose(value).lift; },
   };

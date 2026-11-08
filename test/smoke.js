@@ -158,11 +158,11 @@ function checkUlt(label, kind) {
   assert(T.beaming && T.def.ult === kind, `${label}: Link 100% + đồng bộ → tung chiêu đặc biệt (${T.def.ultName})`);
   if (kind === 'orbital') assert(game.strikes.length === 6, `${label}: gọi 6 tên lửa vệ tinh`);
   if (kind === 'salvo') assert(!!game.salvo, `${label}: hai pháo vai bắt đầu loạt pháo kép`);
-  if (kind === 'overload') assert(!!game.overload, `${label}: hai nắm đấm bắt đầu quá tải thủy lực`);
+  if (kind === 'overload') assert(!!game.overload, `${label}: bắt đầu quá tải hạt nhân (vòi lửa + cầu lửa)`);
   f = 0;
   while (T.beaming && f++ < 60 * 5) { K.cooldown = Math.max(K.cooldown, 1); step(1); }
   assert(!T.beaming && game.kaiju.hp < hp0, `${label}: chiêu đặc biệt gây ${Math.round(hp0 - game.kaiju.hp)} sát thương rồi kết thúc`);
-  if (kind === 'overload') assert(!game.overload, `${label}: quá tải thủy lực kết thúc, trả Link về ${T.link}%`);
+  if (kind === 'overload') assert(!game.overload, `${label}: quá tải hạt nhân kết thúc, trả Link về ${T.link}%`);
   if (kind === 'salvo') assert(game.trails.length === 14 && game.trails.every((tr) => tr.pts.length > 5), `${label}: 14 tên lửa, mỗi quả để lại vệt khói (${game.trails.length} vệt)`);
 }
 
@@ -403,7 +403,7 @@ checkUlt('BASTION', 'salvo');
   assert(game.state === 'clear', `BASTION hạ gục quái đợt 1 (${(f / 60).toFixed(1)}s)`);
   step(200); // diễn ăn mừng
 }
-// Chọn BULWARK (Titan thứ tư, dòng Eye1), chơi đợt 1: móc thủy lực, cầu lửa hai mắt, đấm điện lao chéo, quá tải thủy lực.
+// Chọn BULWARK (Titan thứ tư, dòng Eye1), chơi đợt 1: móc thủy lực, cầu lửa hai mắt, đấm điện lao chéo, quá tải hạt nhân.
 ['KeyA', 'KeyD', 'KeyS', 'KeyL', 'KeyF', 'KeyJ', 'KeyK', 'KeyI', 'KeyW'].forEach(release);
 testHook.toTitle(); step(2);
 press('Enter'); step(1); release('Enter');
@@ -537,7 +537,10 @@ tapKey('Enter');
 assert(game.state === 'training' && game.train.idx === 0 && !game.kaiju, 'vào màn huấn luyện (không có quái)');
 step(30);
 const NTRAIN = testHook.trainMoves(testHook.TITANS[0]).length;
-assert(NTRAIN === 11 && testHook.trainMoves(testHook.TITANS[0])[0].clip === 'idle', 'huấn luyện có mục ĐỨNG IM ở đầu (11 mục)');
+{
+  const tm = testHook.trainMoves(testHook.TITANS[0]);
+  assert(NTRAIN === 11 && tm[0].clip === 'idle' && !tm.some((m) => m.clip === 'ultdemo'), 'huấn luyện: ĐỨNG IM ở đầu, 11 mục (mô phỏng nằm trong mục F+J, không phải dòng riêng)');
+}
 for (let i = 0; i < NTRAIN; i++) { tapKey('KeyS'); step(20); }
 assert(game.train.idx === 0, `S đi hết ${NTRAIN} mục rồi vòng lại`);
 tapKey('Digit6');
@@ -563,6 +566,34 @@ for (const def of testHook.TITANS) {
   console.log(`ok  - diễn đủ ${NTRAIN} mục × ${testHook.TITANS.length} Titan trên sân khấu huấn luyện`);
 }
 tapKey('Space');
+{
+  // Mô phỏng chiêu đặc biệt: map + quái thật, Titan tung chiêu bằng logic trận, quái không chết, tự phát lại, ESC về huấn luyện
+  const prevTitan = game.train.titan;
+  game.train.titan = 0;
+  game.train.idx = 0;
+  tapKey('KeyM');
+  assert(game.state === 'training', 'M ở mục khác không mở mô phỏng');
+  const ultIdx = testHook.trainMoves(testHook.TITANS[0]).findIndex((m) => m.clip === 'ultimate');
+  game.train.idx = ultIdx;
+  tapKey('KeyM');
+  assert(game.state === 'ultdemo' && game.kaiju && game.titan && game.buildings.length > 0, 'M ở mục chiêu đặc biệt F+J mở mô phỏng (có quái và thành phố)');
+  for (let ti = 0; ti < testHook.TITANS.length; ti++) {
+    if (ti > 0) tapKey('KeyD');
+    const def = testHook.TITANS[ti];
+    assert(game.titan.def.id === def.id && !game.demo.fired, `mô phỏng ${def.id}: dựng lại cảnh khi đổi Titan`);
+    let f = 0;
+    let beamed = false;
+    while (game.demo.endT == null && f++ < 60 * 12) { step(1); if (game.titan.beaming) beamed = true; }
+    const dealt = game.kaiju.maxHp - game.kaiju.hp;
+    assert(beamed && game.demo.endT != null && dealt > 0 && !game.kaiju.dying && game.state === 'ultdemo',
+      `mô phỏng ${def.id}: ${def.ultName} đánh vào quái thật (-${Math.round(dealt)} HP), quái không chết`);
+  }
+  step(60 * 3);
+  assert(game.state === 'ultdemo' && game.demo.t < 3, 'mô phỏng tự phát lại sau khi chiêu kết thúc');
+  tapKey('Escape');
+  assert(game.state === 'training' && !game.kaiju && !game.demo && game.train.idx === ultIdx, 'ESC từ mô phỏng về đúng mục F+J, dọn sạch quái');
+  game.train.titan = prevTitan;
+}
 const tFrozen = game.train.t;
 step(30);
 assert(game.train.t === tFrozen, 'SPACE tạm dừng chuyển động');
