@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EyeRim · ảnh bìa</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<!-- Ảnh bìa cho EyePlay: vẽ bằng chính bộ vẽ của game (src/game.js, chế độ __EYERIM_COVER__).
+     EyePlay mở trang này, chờ window.coverReady rồi chụp khung #cover 1280×800. -->
+<style>
+  html, body { margin: 0; background: #05080f; }
+  #cover { display: block; width: 1280px; height: 800px; }
+  #game { display: none; }
+</style>
+</head>
+<body>
+<canvas id="cover" width="1280" height="800" aria-label="EyeRim TIDEBREAKER"></canvas>
+<canvas id="game"></canvas>
+<script>window.__EYERIM_COVER__ = true;</script>
+<script src="src/game.js?v=49"></script>
+<script src="src/titans/common/frame.js?v=2"></script>
+<script src="src/titans/vanguard.js?v=2"></script>
+<script src="src/titans/tempest.js?v=2"></script>
+<script src="src/titans/bastion.js?v=6"></script>
+<script src="src/titans/bulwark.js?v=5"></script>
+<script>
+(() => {
+  // Cảnh do game vẽ ở 1280×720; ảnh bìa 16:10 nên phóng vừa chiều cao và cắt đều hai bên.
+  const cover = document.getElementById('cover');
+  const c = cover.getContext('2d');
+  const scene = window.EyeRimCover;
+  function paint() {
+    if (!scene) return;
+    scene.draw();
+    // Bộ vẽ Titan nạp sau game.js: vẽ lại cảnh khi đủ bộ vẽ.
+    const scale = cover.height / scene.height;
+    const w = scene.width * scale;
+    c.drawImage(scene.canvas, (cover.width - w) / 2, 0, w, cover.height);
+    // Tên game theo kiểu màn tiêu đề TIDEBREAKER.
+    c.save();
+    c.font = '900 118px "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+    c.textBaseline = 'alphabetic';
+    c.shadowColor = 'rgba(79, 240, 255, 0.85)';
+    c.shadowBlur = 28;
+    c.fillStyle = '#e9fdff';
+    c.fillText('TIDEBREAKER', 56, 150);
+    c.shadowBlur = 0;
+    c.font = '800 26px "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+    c.fillStyle = '#4ff0ff';
+    c.fillText('EYERIM · HAI PHI CÔNG · MỘT CỖ MÁY · MỘT THÀNH PHỐ', 60, 196);
+    c.restore();
+  }
+  window.addEventListener('load', () => {
+    paint();
+    window.coverReady = true;
+  });
+})();
+</script>
+</body>
+</html>

@@ -9179,6 +9179,34 @@
     return;
   }
 
+  // ============================================================ ẢNH BÌA (cover.html)
+  // EyePlay chụp cover.html làm ảnh bìa. Dựng một cảnh trận cố định rồi vẽ đúng các lớp cảnh của render()
+  // (trời, thành phố, quái, Titan, biển, mưa), không HUD/menu, không chạy vòng lặp, AI hay nhạc.
+  if (window.__EYERIM_COVER__ === true) {
+    const opt = window.__EYERIM_COVER_SCENE__ || {};
+    game.mode = 'campaign';
+    game.wave = opt.wave ?? 2;
+    setupWave();
+    game.state = 'cover';
+    const T = game.titan;
+    const K = game.beast;
+    T.x = opt.titanX ?? 2050;
+    T.facing = 1;
+    K.x = T.x + (opt.gap ?? 470);
+    K.facing = -1;
+    K.state = 'idle';
+    K.y = 0; // đã lên bờ hẳn (không còn trồi khỏi biển)
+    K.t = 1.2;
+    game.t = opt.t ?? 7.3;
+    game.cam = (T.x + K.x) / 2 - W / 2 + (opt.camShift ?? 0);
+    fx.shake = 0;
+    fx.flash = 0;
+    game.bannerT = 0;
+    // Bộ vẽ Titan (src/titans/*.js) nạp sau game.js: trang ảnh bìa gọi draw() khi đã nạp xong.
+    window.EyeRimCover = { width: W, height: H, canvas, draw: render };
+    return;
+  }
+
   // ============================================================ VÒNG LẶP
   toTitle();
   let last = performance.now();

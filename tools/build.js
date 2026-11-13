@@ -61,6 +61,13 @@ function build(outputRoot = ROOT, version = process.env.GAME_VERSION || 'bản d
   fs.writeFileSync(path.join(pages, 'music/theme.mp3'), track);
   fs.cpSync(path.join(ROOT, 'titans'), path.join(pages, 'titans'), { recursive: true });
   fs.writeFileSync(path.join(pages, '.nojekyll'), '');
+  // Ảnh bìa cho EyePlay: cover.html phải nạp đúng các script game như index.html (cùng ?v=).
+  const cover = fs.readFileSync(path.join(ROOT, 'cover.html'), 'utf8');
+  const scripts = (text) => [...text.matchAll(/<script src="(src\/[^"]+)"><\/script>/g)].map((m) => m[1]);
+  if (scripts(cover).join() !== scripts(source).join()) {
+    throw new Error(`cover.html phải nạp đúng các script như index.html:\n  index: ${scripts(source).join(' ')}\n  cover: ${scripts(cover).join(' ')}`);
+  }
+  fs.writeFileSync(path.join(pages, 'cover.html'), cover);
   const releaseFile = path.join(pages, 'eyerim.html');
   fs.writeFileSync(releaseFile, releaseHtml);
   return { pages, releaseFile, version };
